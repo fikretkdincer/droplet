@@ -27,9 +27,17 @@ A minimalist Pomodoro timer for macOS, built with Swift and SwiftUI.
 3. Drag `droplet` to `Applications`
 4. Launch from Applications or Spotlight
 
+> [!IMPORTANT]
+> **macOS Security Warning**
+> Since this app is not notarized with Apple, macOS will show: *"Apple could not verify droplet is free of malware"*
+>
+> **To open the app:**
+> - **Right-click** (or Control+click) the app → click **Open** → click **Open** again
+> - This is a one-time approval; the app will open normally after that
+
 ### Option 2: Build from Source
 ```bash
-git clone https://github.com/yourusername/droplet.git
+git clone https://github.com/fikretkdincer/droplet.git
 cd droplet
 ./build.sh
 open droplet.app
