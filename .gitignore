@@ -4,7 +4,6 @@
 # Build artifacts
 .build/
 droplet.app/
-droplet-installer.dmg
 droplet_rw.dmg
 
 # Xcode
