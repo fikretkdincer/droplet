@@ -5,8 +5,10 @@ enum Theme: String, CaseIterable, Identifiable {
     case dark = "Dark"
     case light = "Light"
     case beige = "Beige"
+    case beigePlus = "Beige+"
+    case navy = "Navy"
     case frog = "Frog"
-    case cherryBlossom = "Cherry Blossom"
+    case blossom = "Blossom"
     case poppy = "Poppy"
     
     var id: String { rawValue }
@@ -15,9 +17,10 @@ enum Theme: String, CaseIterable, Identifiable {
         switch self {
         case .dark: return Color(hex: "1E1E1E")
         case .light: return Color(hex: "F5F5F5")
-        case .beige: return Color(hex: "F5F1E4")
+        case .beige, .beigePlus: return Color(hex: "F5F1E4")
+        case .navy: return Color(hex: "1C2E4A")
         case .frog: return Color(hex: "E8F3E8")
-        case .cherryBlossom: return Color(hex: "FFF0F5")
+        case .blossom: return Color(hex: "FFF0F5")
         case .poppy: return Color(hex: "FFE4E9")
         }
     }
@@ -27,8 +30,10 @@ enum Theme: String, CaseIterable, Identifiable {
         case .dark: return Color(hex: "81A1C1")
         case .light: return Color(hex: "5D8AA8")
         case .beige: return Color(hex: "8B5E3C")
+        case .beigePlus: return Color(hex: "1C2E4A")
+        case .navy: return Color(hex: "F5F1E4")
         case .frog: return Color(hex: "2D5A27")
-        case .cherryBlossom: return Color(hex: "DB7093")
+        case .blossom: return Color(hex: "DB7093")
         case .poppy: return Color(hex: "FF6B6B")
         }
     }
@@ -38,8 +43,10 @@ enum Theme: String, CaseIterable, Identifiable {
         case .dark: return Color(hex: "A3BE8C")
         case .light: return Color(hex: "6B8E23")
         case .beige: return Color(hex: "A68A64")
+        case .beigePlus: return Color(hex: "3E5C76")
+        case .navy: return Color(hex: "E8E4D5")
         case .frog: return Color(hex: "7FB069")
-        case .cherryBlossom: return Color(hex: "EAB8C5")
+        case .blossom: return Color(hex: "EAB8C5")
         case .poppy: return Color(hex: "FF8FA3")
         }
     }
@@ -49,8 +56,10 @@ enum Theme: String, CaseIterable, Identifiable {
         case .dark: return Color(hex: "E0E0E0")
         case .light: return Color(hex: "333333")
         case .beige: return Color(hex: "4A3728")
+        case .beigePlus: return Color(hex: "1C2E4A")
+        case .navy: return Color(hex: "F5F1E4")
         case .frog: return Color(hex: "1B3022")
-        case .cherryBlossom: return Color(hex: "5F3E49")
+        case .blossom: return Color(hex: "5F3E49")
         case .poppy: return Color(hex: "8B2942")
         }
     }

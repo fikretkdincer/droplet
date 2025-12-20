@@ -127,9 +127,10 @@ jobs:
           
           ### Features
           - 🍅 Pomodoro timer with customizable durations
-          - 🎨 6 beautiful themes
-          - 🎧 4 ambient focus sounds
-          - ✨ Glow effects
+          - � **Music Integration** - Control Spotify & Apple Music + Now Playing info
+          - �🎨 **8 Beautiful Themes** - Dark, Light, Beige, Beige+, Navy, Frog, Blossom, Poppy
+          - 🎧 **Ambient Focus Sounds** - Forest, Train, Library, Cricket
+          - ✨ **Visual Polish** - Glow effects & smooth animations
           - 🔔 Native notifications
           - 🚀 Auto-updates via Sparkle
         files: droplet-installer.dmg

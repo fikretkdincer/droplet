@@ -9,7 +9,8 @@ Built with Swift and SwiftUI.
 ## Features
 
 - 🍅 **Pomodoro Timer** - Work → Break → Long Break cycle
-- 🎨 **6 Beautiful Themes** - Dark, Light, Beige, Frog, Cherry Blossom, Poppy
+- 🎵 **Music Integration** - Control Spotify & Apple Music (Play/Pause, Next, Previous) with Now Playing info
+- 🎨 **8 Beautiful Themes** - Dark, Light, Beige, Beige+, Navy, Frog, Blossom, Poppy
 - 🎧 **Ambient Sounds** - Forest, Train, Library, Cricket (seamless looping)
 - ✨ **Glow Effects** - Optional glowing timer and progress bar
 - 🔔 **Notifications** - Native macOS alerts when sessions end
