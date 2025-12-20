@@ -160,6 +160,24 @@ class SettingsMenu: NSObject {
         visualsItem.submenu = visualsMenu
         menu.addItem(visualsItem)
         
+        // Music submenu
+        let musicMenu = NSMenu()
+        let showMusicControls = NSMenuItem(title: "Show Music Controls", action: #selector(toggleMusicControls), keyEquivalent: "")
+        showMusicControls.target = self
+        showMusicControls.state = settings.showMusicControls ? .on : .off
+        musicMenu.addItem(showMusicControls)
+        musicMenu.addItem(NSMenuItem.separator())
+        for app in ["Spotify", "Apple Music"] {
+            let item = NSMenuItem(title: app, action: #selector(selectMusicApp(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = app
+            if settings.musicApp == app { item.state = .on }
+            musicMenu.addItem(item)
+        }
+        let musicItem = NSMenuItem(title: "Music", action: nil, keyEquivalent: "")
+        musicItem.submenu = musicMenu
+        menu.addItem(musicItem)
+        
         menu.addItem(NSMenuItem.separator())
         
         // Check for Updates
@@ -214,4 +232,11 @@ class SettingsMenu: NSObject {
     
     @objc func checkForUpdates() { UpdateManager.shared.checkForUpdates() }
     @objc func quitApp() { NSApplication.shared.terminate(nil) }
+    
+    @objc func toggleMusicControls() { settings.showMusicControls.toggle() }
+    @objc func selectMusicApp(_ sender: NSMenuItem) {
+        if let app = sender.representedObject as? String {
+            settings.musicApp = app
+        }
+    }
 }

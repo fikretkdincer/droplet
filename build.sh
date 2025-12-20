@@ -47,8 +47,13 @@ fi
 # Create a simple PkgInfo
 echo "APPL????" > "${CONTENTS_DIR}/PkgInfo"
 
+# Sign the app with entitlements for MediaRemote access
+if [ -f "Resources/droplet.entitlements" ]; then
+    echo "🔐 Signing app with entitlements..."
+    codesign --force --deep --sign - --entitlements "Resources/droplet.entitlements" "${APP_BUNDLE}"
+fi
+
 echo "✅ App bundle created: ${APP_BUNDLE}"
 echo ""
 echo "To run: open ${APP_BUNDLE}"
 echo "To install: cp -r ${APP_BUNDLE} /Applications/"
-

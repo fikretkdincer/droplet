@@ -18,6 +18,10 @@ class SettingsManager: ObservableObject {
     @AppStorage("enableGlow") var enableGlow: Bool = false
     @AppStorage("showProgressBar") var showProgressBar: Bool = true
     
+    // Music settings
+    @AppStorage("showMusicControls") var showMusicControls: Bool = true
+    @AppStorage("musicApp") var musicApp: String = "Spotify"
+    
     var selectedTheme: Theme {
         get { Theme(rawValue: selectedThemeRaw) ?? .dark }
         set { selectedThemeRaw = newValue.rawValue }
