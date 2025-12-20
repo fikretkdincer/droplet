@@ -177,7 +177,17 @@ jobs:
       run: |
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
+        
+        # Fetch and checkout main branch (we're currently on a detached HEAD from the tag)
+        git fetch origin main:main
         git checkout main
+        
+        # Add and commit appcast.xml
         git add appcast.xml
-        git diff --cached --exit-code || git commit -m "Update appcast.xml for v${{ steps.version.outputs.VERSION }}"
-        git push || echo "No changes to push"
+        if git diff --cached --quiet; then
+          echo "No changes to appcast.xml"
+        else
+          git commit -m "Update appcast.xml for v${{ steps.version.outputs.VERSION }}"
+          git push origin main
+          echo "✅ appcast.xml committed and pushed"
+        fi
