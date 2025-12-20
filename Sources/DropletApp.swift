@@ -7,8 +7,14 @@ struct DropletApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
     var body: some Scene {
-        Settings {
+        WindowGroup {
             EmptyView()
+                .frame(width: 0, height: 0)
+                .hidden()
+                .onAppear {
+                    NSWindow.allowsAutomaticWindowTabbing = false
+                    NSApplication.shared.windows.first?.close()
+                }
         }
     }
 }

@@ -73,30 +73,26 @@ jobs:
         echo "✅ App bundle created: ${APP_BUNDLE}"
         
     - name: Create DMG
+    - name: Create DMG
       run: |
         set -e
         
-        # Create temp directory with unique name
-        DMG_DIR="$(mktemp -d)/droplet_dmg"
-        mkdir -p "$DMG_DIR"
+        # Install create-dmg utility
+        brew install create-dmg
         
-        # Copy app and create Applications symlink
-        cp -r droplet.app "$DMG_DIR/"
-        ln -sf /Applications "$DMG_DIR/Applications"
-        
-        # Sync to ensure all writes are complete
-        sync
-        sleep 2
-        
-        # Create DMG
-        hdiutil create -volname "droplet" \
-          -srcfolder "$DMG_DIR" \
-          -ov -format UDBZ \
-          droplet-installer.dmg
-        
-        # Clean up
-        rm -rf "$DMG_DIR"
-        sync
+        # Create DMG using create-dmg for a prettier layout
+        echo "Creating DMG..."
+        create-dmg \
+          --volname "droplet" \
+          --volicon "Resources/AppIcon.icns" \
+          --window-pos 200 120 \
+          --window-size 600 300 \
+          --icon-size 100 \
+          --icon "droplet.app" 175 120 \
+          --hide-extension "droplet.app" \
+          --app-drop-link 425 120 \
+          "droplet-installer.dmg" \
+          "droplet.app"
         
         # Verify DMG was created
         ls -lh droplet-installer.dmg
