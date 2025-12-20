@@ -19,13 +19,22 @@ jobs:
     
     - name: Update version in Info.plist
       run: |
-        sed -i '' "s/<string>1.0.0<\/string>/<string>${{ steps.version.outputs.VERSION }}<\/string>/" Resources/Info.plist
+        VERSION=${{ steps.version.outputs.VERSION }}
+        sed -i '' "s/<string>1\.0\.0<\/string>/<string>${VERSION}<\/string>/" Resources/Info.plist
+        cat Resources/Info.plist | grep -A1 CFBundleShortVersionString
+    
+    - name: Resolve dependencies
+      run: |
+        swift package resolve
+        echo "✅ Dependencies resolved"
     
     - name: Build app
       run: |
+        set -e
         swift build -c release
+        echo "✅ Swift build complete"
         
-        # Create app bundle
+        # Create app bundle structure
         APP_NAME="droplet"
         APP_BUNDLE="${APP_NAME}.app"
         CONTENTS_DIR="${APP_BUNDLE}/Contents"
@@ -33,73 +42,75 @@ jobs:
         RESOURCES_DIR="${CONTENTS_DIR}/Resources"
         FRAMEWORKS_DIR="${CONTENTS_DIR}/Frameworks"
         
+        echo "Creating app bundle..."
+        rm -rf "${APP_BUNDLE}"
         mkdir -p "${MACOS_DIR}" "${RESOURCES_DIR}" "${FRAMEWORKS_DIR}"
         
+        # Copy executable
         cp ".build/release/${APP_NAME}" "${MACOS_DIR}/"
-        cp "Resources/Info.plist" "${CONTENTS_DIR}/"
-        cp -r "Resources/Sounds" "${RESOURCES_DIR}/" 2>/dev/null || true
-        cp "Resources/AppIcon.icns" "${RESOURCES_DIR}/" 2>/dev/null || true
+        chmod +x "${MACOS_DIR}/${APP_NAME}"
         
-        # Copy Sparkle framework
-        SPARKLE_PATH=$(find .build -name "Sparkle.framework" -type d 2>/dev/null | head -1)
-        if [ -n "$SPARKLE_PATH" ]; then
-          cp -R "$SPARKLE_PATH" "${FRAMEWORKS_DIR}/"
+        # Copy Info.plist
+        cp "Resources/Info.plist" "${CONTENTS_DIR}/"
+        
+        # Copy resources
+        if [ -d "Resources/Sounds" ]; then
+          echo "Copying sounds..."
+          cp -r "Resources/Sounds" "${RESOURCES_DIR}/"
         fi
         
-        echo "APPL????" > "${CONTENTS_DIR}/PkgInfo"
-        echo "✅ App bundle created"
+        if [ -f "Resources/AppIcon.icns" ]; then
+          echo "Copying icon..."
+          cp "Resources/AppIcon.icns" "${RESOURCES_DIR}/"
+        fi
+        
+        # Copy Sparkle framework
+        echo "Looking for Sparkle framework..."
+        SPARKLE_PATH=$(find .build -name "Sparkle.framework" -type d 2>/dev/null | head -1)
+        if [ -n "$SPARKLE_PATH" ]; then
+          echo "Copying Sparkle from: $SPARKLE_PATH"
+          cp -R "$SPARKLE_PATH" "${FRAMEWORKS_DIR}/"
+        else
+          echo "⚠️  Sparkle framework not found"
+        fi
+        
+        # Create PkgInfo
+        echo -n "APPL????" > "${CONTENTS_DIR}/PkgInfo"
+        
+        echo "✅ App bundle created: ${APP_BUNDLE}"
     
     - name: Create DMG
       run: |
-        # Simple DMG creation without AppleScript (works in CI)
-        mkdir -p dmg_temp
-        cp -r droplet.app dmg_temp/
-        ln -s /Applications dmg_temp/Applications
+        set -e
         
+        # Create temp directory with unique name
+        DMG_DIR="$(mktemp -d)/droplet_dmg"
+        mkdir -p "$DMG_DIR"
+        
+        # Copy app and create Applications symlink
+        cp -r droplet.app "$DMG_DIR/"
+        ln -sf /Applications "$DMG_DIR/Applications"
+        
+        # Sync to ensure all writes are complete
+        sync
+        sleep 2
+        
+        # Create DMG
         hdiutil create -volname "droplet" \
-          -srcfolder dmg_temp \
-          -ov -format UDZO \
-          -imagekey zlib-level=9 \
+          -srcfolder "$DMG_DIR" \
+          -ov -format UDBZ \
           droplet-installer.dmg
         
-        rm -rf dmg_temp
-        echo "✅ DMG created"
-    
-    - name: Update appcast.xml
-      run: |
-        VERSION=${{ steps.version.outputs.VERSION }}
-        DATE=$(date -u +"%a, %d %b %Y %H:%M:%S %z")
-        DMG_SIZE=$(stat -f%z droplet-installer.dmg)
+        # Clean up
+        rm -rf "$DMG_DIR"
+        sync
         
-        cat > appcast.xml << EOF
-        <?xml version="1.0" encoding="utf-8"?>
-        <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
-            <channel>
-                <title>droplet</title>
-                <link>https://github.com/${{ github.repository }}</link>
-                <description>droplet - Minimalist Pomodoro Timer for macOS</description>
-                <language>en</language>
-                <item>
-                    <title>Version ${VERSION}</title>
-                    <pubDate>${DATE}</pubDate>
-                    <sparkle:version>${VERSION//./}</sparkle:version>
-                    <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>
-                    <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-                    <description><![CDATA[
-                        <h2>droplet ${VERSION}</h2>
-                        <p>See release notes on GitHub for details.</p>
-                    ]]></description>
-                    <enclosure 
-                        url="https://github.com/${{ github.repository }}/releases/download/v${VERSION}/droplet-installer.dmg"
-                        length="${DMG_SIZE}"
-                        type="application/octet-stream"/>
-                </item>
-            </channel>
-        </rss>
-        EOF
+        # Verify DMG was created
+        ls -lh droplet-installer.dmg
+        echo "✅ DMG created successfully"
     
     - name: Create Release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       with:
         name: droplet v${{ steps.version.outputs.VERSION }}
         body: |
@@ -111,21 +122,62 @@ jobs:
           3. Launch from Applications or Spotlight
           
           > **Note**: On first launch, right-click the app and select "Open" to bypass Gatekeeper.
-        files: |
-          droplet-installer.dmg
-        draft: false
-        prerelease: false
+          
+          ### Features
+          - 🍅 Pomodoro timer with customizable durations
+          - 🎨 6 beautiful themes
+          - 🎧 4 ambient focus sounds
+          - ✨ Glow effects
+          - 🔔 Native notifications
+          - 🚀 Auto-updates via Sparkle
+        files: droplet-installer.dmg
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     
-    - name: Commit updated appcast.xml
+    - name: Update appcast.xml
       run: |
-        git config user.name github-actions
-        git config user.email github-actions@github.com
-        git fetch origin main
+        VERSION=${{ steps.version.outputs.VERSION }}
+        DATE=$(date -u +"%a, %d %b %Y %H:%M:%S %z")
+        DMG_SIZE=$(stat -f%z droplet-installer.dmg)
+        
+        cat > appcast.xml << 'EOF'
+        <?xml version="1.0" encoding="utf-8"?>
+        <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+            <channel>
+                <title>droplet</title>
+                <link>https://github.com/${{ github.repository }}</link>
+                <description>Minimalist Pomodoro Timer for macOS</description>
+                <language>en</language>
+                <item>
+                    <title>Version ${{ steps.version.outputs.VERSION }}</title>
+                    <pubDate>${DATE}</pubDate>
+                    <sparkle:version>${VERSION//./}</sparkle:version>
+                    <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>
+                    <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+                    <description><![CDATA[
+                        <h2>droplet ${VERSION}</h2>
+                        <p>See release notes for details.</p>
+                    ]]></description>
+                    <enclosure 
+                        url="https://github.com/${{ github.repository }}/releases/download/v${VERSION}/droplet-installer.dmg"
+                        length="${DMG_SIZE}"
+                        type="application/octet-stream"/>
+                </item>
+            </channel>
+        </rss>
+        EOF
+        
+        # Fix the placeholders
+        sed -i '' "s/\${{ github.repository }}/${{ github.repository }}/g" appcast.xml
+        sed -i '' "s/\${{ steps.version.outputs.VERSION }}/${{ steps.version.outputs.VERSION }}/g" appcast.xml
+        
+        cat appcast.xml
+    
+    - name: Commit appcast.xml
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
         git checkout main
         git add appcast.xml
-        git commit -m "Update appcast.xml for v${{ steps.version.outputs.VERSION }}" || echo "No changes to commit"
-        git push
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        git diff --cached --exit-code || git commit -m "Update appcast.xml for v${{ steps.version.outputs.VERSION }}"
+        git push || echo "No changes to push"
