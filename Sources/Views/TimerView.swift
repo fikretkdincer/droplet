@@ -271,8 +271,8 @@ struct InAppGoalSetupView: View {
     @ObservedObject var settings = SettingsManager.shared
     @State private var selectedIndex: Int = 5
     
-    let hourLabels = ["4m", "30m", "1h", "1.5h", "2h", "3h", "4h", "5h", "6h", "8h"]
-    let hourValues: [Double] = [0.0667, 0.5, 1, 1.5, 2, 3, 4, 5, 6, 8]
+    let hourLabels = ["30m", "1h", "1.5h", "2h", "3h", "4h", "5h", "6h", "8h"]
+    let hourValues: [Double] = [0.5, 1, 1.5, 2, 3, 4, 5, 6, 8]
     
     var body: some View {
         VStack(spacing: 16) {

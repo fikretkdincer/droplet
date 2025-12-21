@@ -93,7 +93,7 @@ class SettingsMenu: NSObject {
         
         // Work Duration
         let workMenu = NSMenu()
-        for minutes in [1, 10, 15, 20, 25, 30, 45, 50, 60] {
+        for minutes in [10, 15, 20, 25, 30, 45, 50, 60] {
             let item = NSMenuItem(title: "\(minutes) min", action: #selector(setWorkDuration(_:)), keyEquivalent: "")
             item.target = self
             item.tag = minutes
@@ -106,7 +106,7 @@ class SettingsMenu: NSObject {
         
         // Break Duration
         let breakMenu = NSMenu()
-        for minutes in [1, 3, 5, 10, 15] {
+        for minutes in [3, 5, 10, 15] {
             let item = NSMenuItem(title: "\(minutes) min", action: #selector(setBreakDuration(_:)), keyEquivalent: "")
             item.target = self
             item.tag = minutes
