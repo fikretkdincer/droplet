@@ -17,16 +17,65 @@ class SettingsMenu: NSObject {
         
         // Sounds submenu
         let soundsMenu = NSMenu()
+        
+        // Built-in sounds
         for sound in AmbientSound.allCases {
             let item = NSMenuItem(title: sound.rawValue, action: #selector(selectSound(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = sound
-            if SoundManager.shared.currentSound == sound && sound != .none {
+            if SoundManager.shared.currentSound == sound && sound != .none && SoundManager.shared.currentCustomSound == nil {
                 item.state = .on
             }
             soundsMenu.addItem(item)
         }
+        
+        // Custom sounds section
+        let customSounds = SoundManager.shared.customSounds
+        if !customSounds.isEmpty {
+            soundsMenu.addItem(NSMenuItem.separator())
+            
+            for sound in customSounds {
+                let item = NSMenuItem(title: sound.name, action: #selector(selectCustomSound(_:)), keyEquivalent: "")
+                item.target = self
+                item.representedObject = sound
+                if SoundManager.shared.currentCustomSound?.id == sound.id {
+                    item.state = .on
+                }
+                soundsMenu.addItem(item)
+            }
+        }
+        
         soundsMenu.addItem(NSMenuItem.separator())
+        
+        // Import Sound
+        let importSound = NSMenuItem(title: "Import Sound...", action: #selector(importSound), keyEquivalent: "")
+        importSound.target = self
+        soundsMenu.addItem(importSound)
+        
+        // Delete Sounds submenu (only if there are custom sounds)
+        if !customSounds.isEmpty {
+            let deleteMenu = NSMenu()
+            for sound in customSounds {
+                let item = NSMenuItem(title: sound.name, action: #selector(deleteCustomSound(_:)), keyEquivalent: "")
+                item.target = self
+                item.representedObject = sound
+                deleteMenu.addItem(item)
+            }
+            let deleteItem = NSMenuItem(title: "Delete Sound", action: nil, keyEquivalent: "")
+            deleteItem.submenu = deleteMenu
+            soundsMenu.addItem(deleteItem)
+        }
+        
+        soundsMenu.addItem(NSMenuItem.separator())
+        
+        // Pause sounds when timer paused toggle
+        let pauseOnPause = NSMenuItem(title: "Pause When Paused", action: #selector(togglePauseSoundsOnTimerPause), keyEquivalent: "")
+        pauseOnPause.target = self
+        pauseOnPause.state = settings.pauseSoundsOnTimerPause ? .on : .off
+        soundsMenu.addItem(pauseOnPause)
+        
+        soundsMenu.addItem(NSMenuItem.separator())
+        
         let volumeUp = NSMenuItem(title: "Volume Up", action: #selector(volumeUp), keyEquivalent: "")
         volumeUp.target = self
         volumeUp.isEnabled = SoundManager.shared.isPlaying
@@ -44,7 +93,7 @@ class SettingsMenu: NSObject {
         
         // Work Duration
         let workMenu = NSMenu()
-        for minutes in [10, 15, 20, 25, 30, 45, 50, 60] {
+        for minutes in [1, 10, 15, 20, 25, 30, 45, 50, 60] {
             let item = NSMenuItem(title: "\(minutes) min", action: #selector(setWorkDuration(_:)), keyEquivalent: "")
             item.target = self
             item.tag = minutes
@@ -57,7 +106,7 @@ class SettingsMenu: NSObject {
         
         // Break Duration
         let breakMenu = NSMenu()
-        for minutes in [3, 5, 10, 15] {
+        for minutes in [1, 3, 5, 10, 15] {
             let item = NSMenuItem(title: "\(minutes) min", action: #selector(setBreakDuration(_:)), keyEquivalent: "")
             item.target = self
             item.tag = minutes
@@ -156,6 +205,10 @@ class SettingsMenu: NSObject {
         progressBar.target = self
         progressBar.state = settings.showProgressBar ? .on : .off
         visualsMenu.addItem(progressBar)
+        let timerControls = NSMenuItem(title: "Timer Controls", action: #selector(toggleTimerControls), keyEquivalent: "")
+        timerControls.target = self
+        timerControls.state = settings.showTimerControls ? .on : .off
+        visualsMenu.addItem(timerControls)
         let visualsItem = NSMenuItem(title: "Visuals", action: nil, keyEquivalent: "")
         visualsItem.submenu = visualsMenu
         menu.addItem(visualsItem)
@@ -177,6 +230,13 @@ class SettingsMenu: NSObject {
         let musicItem = NSMenuItem(title: "Music", action: nil, keyEquivalent: "")
         musicItem.submenu = musicMenu
         menu.addItem(musicItem)
+        
+        menu.addItem(NSMenuItem.separator())
+        
+        // Goal Tracker
+        let goalTracker = NSMenuItem(title: "Goal Tracker", action: #selector(openGoalTracker), keyEquivalent: "")
+        goalTracker.target = self
+        menu.addItem(goalTracker)
         
         menu.addItem(NSMenuItem.separator())
         
@@ -229,6 +289,7 @@ class SettingsMenu: NSObject {
     @objc func setFontSize(_ sender: NSMenuItem) { settings.timerFontSize = Double(sender.tag) }
     @objc func toggleGlow() { settings.enableGlow.toggle() }
     @objc func toggleProgressBar() { settings.showProgressBar.toggle() }
+    @objc func toggleTimerControls() { settings.showTimerControls.toggle() }
     
     @objc func checkForUpdates() { UpdateManager.shared.checkForUpdates() }
     @objc func quitApp() { NSApplication.shared.terminate(nil) }
@@ -237,6 +298,45 @@ class SettingsMenu: NSObject {
     @objc func selectMusicApp(_ sender: NSMenuItem) {
         if let app = sender.representedObject as? String {
             settings.musicApp = app
+        }
+    }
+    
+    @objc func togglePauseSoundsOnTimerPause() { settings.pauseSoundsOnTimerPause.toggle() }
+    
+    @objc func openGoalTracker() {
+        let goalTracker = GoalTracker.shared
+        
+        if goalTracker.hasGoalSet {
+            settings.navigateTo(.weeklyProgress)
+        } else {
+            settings.navigateTo(.goalSetup)
+        }
+    }
+    
+    // MARK: - Custom Sound Actions
+    
+    @objc func selectCustomSound(_ sender: NSMenuItem) {
+        if let sound = sender.representedObject as? CustomSound {
+            SoundManager.shared.playCustom(sound)
+        }
+    }
+    
+    @objc func importSound() {
+        SoundManager.shared.importSound()
+    }
+    
+    @objc func deleteCustomSound(_ sender: NSMenuItem) {
+        if let sound = sender.representedObject as? CustomSound {
+            let alert = NSAlert()
+            alert.messageText = "Delete '\(sound.name)'?"
+            alert.informativeText = "This will permanently remove the sound file."
+            alert.addButton(withTitle: "Delete")
+            alert.addButton(withTitle: "Cancel")
+            alert.alertStyle = .warning
+            
+            if alert.runModal() == .alertFirstButtonReturn {
+                SoundManager.shared.deleteCustomSound(sound)
+            }
         }
     }
 }

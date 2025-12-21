@@ -9,12 +9,14 @@ Built with Swift and SwiftUI.
 ## Features
 
 - 🍅 **Pomodoro Timer** - Work → Break → Long Break cycle
-- 🎵 **Music Integration** - Control Spotify & Apple Music (Play/Pause, Next, Previous) with Now Playing info
+- 🎵 **Music Integration** - Control Spotify & Apple Music (Play/Pause, Next, Previous, Shuffle, Repeat) with Now Playing info
 - 🎨 **8 Beautiful Themes** - Dark, Light, Beige, Beige+, Navy, Frog, Blossom, Poppy
 - 🎧 **Ambient Sounds** - Forest, Train, Library, Cricket (seamless looping)
 - ✨ **Glow Effects** - Optional glowing timer and progress bar
 - 🔔 **Notifications** - Native macOS alerts when sessions end
-- 📌 **Menu Bar Only** - Lives in your menu bar, no dock icon
+- � **Goal Tracker** - Set daily goals, track weekly progress with visual charts
+- 🎶 **Custom Sounds** - Import your own MP3 files as focus sounds
+- �📌 **Menu Bar Only** - Lives in your menu bar, no dock icon
 - 🚀 **Launch at Login** - Start automatically with your Mac
 - ⚙️ **Customizable** - Adjust durations, workflows, font size
 
@@ -38,6 +40,11 @@ Built with Swift and SwiftUI.
 > - Or go to **System Settings → Privacy & Security** → scroll down → click **Open Anyway**
 >
 > This is a one-time approval; the app will open normally after that.
+
+> [!NOTE]
+> **Music Control Permissions**
+> When you first use the music controls, macOS will ask: *"Droplet wants to control Spotify/Music"*.
+> Click **OK** to allow Droplet to play/pause, skip tracks, and toggle shuffle/repeat in your chosen music app.
 
 ### Build from Source
 ```bash

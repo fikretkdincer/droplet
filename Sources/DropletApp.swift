@@ -96,6 +96,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         window?.makeKeyAndOrderFront(nil)
         
+        // Set static reference for view navigation
+        SettingsManager.mainWindow = window
+        
         // Monitor for always on top changes
         NotificationCenter.default.addObserver(
             forName: UserDefaults.didChangeNotification,

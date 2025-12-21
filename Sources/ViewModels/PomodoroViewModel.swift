@@ -13,6 +13,9 @@ class PomodoroViewModel: ObservableObject {
     private var settings = SettingsManager.shared
     private var notifications = NotificationManager.shared
     
+    /// Tracks seconds worked in current session for minute-by-minute goal tracking
+    private var secondsWorkedThisSession: Int = 0
+    
     init() {
         resetToCurrentMode()
     }
@@ -68,6 +71,12 @@ class PomodoroViewModel: ObservableObject {
         stopTimer()
         resetToCurrentMode()
         status = .idle
+        secondsWorkedThisSession = 0
+        
+        // Stop ambient sounds on reset (like pausing)
+        if settings.pauseSoundsOnTimerPause {
+            SoundManager.shared.stop()
+        }
     }
     
     // MARK: - Timer Control
@@ -79,12 +88,26 @@ class PomodoroViewModel: ObservableObject {
             .sink { [weak self] _ in
                 self?.tick()
             }
+        
+        // Resume sounds if they were paused
+        if settings.pauseSoundsOnTimerPause && currentMode == .work {
+            if SoundManager.shared.currentSound != .none || SoundManager.shared.currentCustomSound != nil {
+                if !SoundManager.shared.isPlaying {
+                    SoundManager.shared.toggle()
+                }
+            }
+        }
     }
     
     private func pauseTimer() {
         status = .paused
         timer?.cancel()
         timer = nil
+        
+        // Pause sounds when timer is paused
+        if settings.pauseSoundsOnTimerPause && SoundManager.shared.isPlaying {
+            SoundManager.shared.stop()
+        }
     }
     
     private func stopTimer() {
@@ -97,6 +120,18 @@ class PomodoroViewModel: ObservableObject {
         
         remainingSeconds -= 1
         
+        // Track goal progress every minute during work sessions
+        if currentMode == .work {
+            secondsWorkedThisSession += 1
+            if secondsWorkedThisSession >= 60 {
+                secondsWorkedThisSession = 0
+                // Record 1 minute of work and check for milestones
+                if let milestone = GoalTracker.shared.recordWorkSession(minutes: 1) {
+                    sendMilestoneNotification(milestone: milestone)
+                }
+            }
+        }
+        
         if remainingSeconds == 0 {
             handleSessionComplete()
         }
@@ -106,6 +141,12 @@ class PomodoroViewModel: ObservableObject {
         stopTimer()
         status = .idle
         sendNotification()
+        
+        // Record any remaining seconds worked (less than a minute)
+        if currentMode == .work && secondsWorkedThisSession > 0 {
+            // Don't record partial minutes - they'll count next session
+            secondsWorkedThisSession = 0
+        }
         
         if settings.autoStartNextSession {
             // Switch to next mode and auto-start
@@ -118,6 +159,11 @@ class PomodoroViewModel: ObservableObject {
             // Wait for user to click
             status = .pulsing
         }
+    }
+    
+    private func sendMilestoneNotification(milestone: Int) {
+        guard let message = GoalTracker.milestoneMessages[milestone] else { return }
+        notifications.sendCustomNotification(title: message.title, body: message.body)
     }
     
     private func sendNotification() {
@@ -141,8 +187,16 @@ class PomodoroViewModel: ObservableObject {
             } else {
                 currentMode = .shortBreak
             }
+            // Pause ambient sounds during break
+            if SoundManager.shared.isPlaying {
+                SoundManager.shared.stop()
+            }
         case .shortBreak, .longBreak:
             currentMode = .work
+            // Resume ambient sounds for work session
+            if SoundManager.shared.currentSound != .none || SoundManager.shared.currentCustomSound != nil {
+                SoundManager.shared.toggle()
+            }
         }
         resetToCurrentMode()
     }

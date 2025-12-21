@@ -112,9 +112,11 @@ jobs:
           > **Note**: On first launch, right-click the app and select "Open" to bypass Gatekeeper.
           
           ### What's New
-          - 🎵 **Music Integration**: Control Spotify & Apple Music directly from the timer (Play/Pause, Next, Previous).
-          - 🎨 **New Themes**: added **Beige+** and **Navy**, and renamed Cherry Blossom to **Blossom**.
-          - 🐛 **Bug Fixes**: Improved stability and resolved "Operation not permitted" issues.
+          - 🎵 **Music Integration**: Control Spotify & Apple Music directly (Play/Pause, Next, Previous, Shuffle, Repeat).
+          - 📊 **Goal Tracker**: Set daily focus goals and track your weekly progress with visual charts.
+          - 🎶 **Custom Sounds**: Import your own MP3 files as ambient focus sounds.
+          - 🐛 **Bug Fixes**: Improved stability and fixed some bugs.
         files: droplet-installer.dmg
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  

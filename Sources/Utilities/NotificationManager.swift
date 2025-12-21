@@ -45,7 +45,7 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         completionHandler()
     }
     
-    /// Play system alert sound
+    /// Play system alert sound for session end
     func playAlertSound() {
         // Play the system "Glass" sound (a pleasant beep)
         NSSound.beep()
@@ -53,6 +53,18 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         // Alternative: play a specific system sound
         if let sound = NSSound(named: "Glass") {
             sound.play()
+        }
+    }
+    
+    /// Play distinct sound for milestone notifications
+    func playMilestoneSound() {
+        // Use "Hero" or "Purr" for a different, uplifting sound
+        if let sound = NSSound(named: "Hero") {
+            sound.play()
+        } else if let sound = NSSound(named: "Purr") {
+            sound.play()
+        } else {
+            NSSound.beep()
         }
     }
     
@@ -114,6 +126,30 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
             title: "Long Break Over!",
             body: "Great job! Ready for another workflow?"
         )
+    }
+    
+    /// Send a custom notification (for milestones, etc.)
+    func sendCustomNotification(title: String, body: String) {
+        // Use distinct milestone sound
+        playMilestoneSound()
+        
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = UNNotificationSound.default
+        content.interruptionLevel = .timeSensitive
+        
+        let request = UNNotificationRequest(
+            identifier: UUID().uuidString,
+            content: content,
+            trigger: nil
+        )
+        
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("❌ Failed to send milestone notification: \(error)")
+            }
+        }
     }
 }
 
