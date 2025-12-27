@@ -9,6 +9,9 @@ class PomodoroViewModel: ObservableObject {
     @Published var remainingSeconds: Int = 25 * 60
     @Published var completedWorkflows: Int = 0
     
+    /// Total seconds for the current session (set when timer starts, doesn't change mid-session)
+    private var sessionTotalSeconds: Int = 25 * 60
+    
     private var timer: AnyCancellable?
     private var settings = SettingsManager.shared
     private var notifications = NotificationManager.shared
@@ -40,10 +43,20 @@ class PomodoroViewModel: ObservableObject {
     var progressRatio: Double {
         let total = totalSecondsForCurrentMode
         guard total > 0 else { return 0 }
-        return Double(totalSecondsForCurrentMode - remainingSeconds) / Double(total)
+        
+        // If remaining is greater than total (e.g. settings reduced mid-session),
+        // show empty bar instead of negative/overflow
+        if remainingSeconds > total {
+            return 0
+        }
+        
+        let ratio = Double(total - remainingSeconds) / Double(total)
+        return min(max(ratio, 0), 1.0)
     }
     
-    private var totalSecondsForCurrentMode: Int {
+
+    
+    var totalSecondsForCurrentMode: Int {
         switch currentMode {
         case .work:
             return settings.workDuration * 60
@@ -129,6 +142,8 @@ class PomodoroViewModel: ObservableObject {
                 if let milestone = GoalTracker.shared.recordWorkSession(minutes: 1) {
                     sendMilestoneNotification(milestone: milestone)
                 }
+                // Also record to active task (if any)
+                TaskManager.shared.recordMinuteForActiveTask()
             }
         }
         
@@ -202,7 +217,8 @@ class PomodoroViewModel: ObservableObject {
     }
     
     private func resetToCurrentMode() {
-        remainingSeconds = totalSecondsForCurrentMode
+        sessionTotalSeconds = totalSecondsForCurrentMode
+        remainingSeconds = sessionTotalSeconds
     }
     
     /// Called when user clicks during pulsing state to continue

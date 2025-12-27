@@ -112,10 +112,12 @@ jobs:
           > **Note**: On first launch, right-click the app and select "Open" to bypass Gatekeeper.
           
           ### What's New
-          - 🎵 **Music Integration**: Control Spotify & Apple Music directly (Play/Pause, Next, Previous, Shuffle, Repeat).
-          - 📊 **Goal Tracker**: Set daily focus goals and track your weekly progress with visual charts.
-          - 🎶 **Custom Sounds**: Import your own MP3 files as ambient focus sounds.
-          - 🐛 **Bug Fixes**: Improved stability and fixed some bugs.
+          - ✨ **Task Management**: Create tasks, track time per task, and view your focus history.
+          - 🎨 **Mini-Floater Mode**: Toggle a tiny, pill-shaped window (100x36) to keep an eye on time without distraction.
+          - 🎭 **New Themes**: Added **Leaf** (Deep Pine) and **Navy+** (Dark Navy/Beige).
+          - ⏱️ **Menu Bar Timer**: See the countdown directly in your macOS menu bar.
+          - ⚙️ **Enhanced Settings**: Unified, easier-to-use settings experience with improved customization.
+          - 🐛 **Bug Fixes**: Smoother animations, fixed progress bar scaling, and improved stability.
         files: droplet-installer.dmg
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

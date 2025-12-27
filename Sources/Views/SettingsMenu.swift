@@ -15,6 +15,42 @@ class SettingsMenu: NSObject {
     func createMenu() -> NSMenu {
         let menu = NSMenu()
         
+        // Mini-Floater: Show minimal menu with just the toggle option
+        if settings.miniFloaterMode {
+            let miniFloater = NSMenuItem(title: "Exit Mini Mode", action: #selector(toggleMiniFloater), keyEquivalent: "")
+            miniFloater.target = self
+            menu.addItem(miniFloater)
+            
+            menu.addItem(NSMenuItem.separator())
+            
+            let quit = NSMenuItem(title: "Quit droplet", action: #selector(quitApp), keyEquivalent: "q")
+            quit.target = self
+            menu.addItem(quit)
+            
+            return menu
+        }
+        
+        // Regular menu when not in Mini-Floater mode
+        
+        // Settings at top
+        let settingsItem = NSMenuItem(title: "Settings", action: #selector(openSettings), keyEquivalent: "")
+        settingsItem.target = self
+        menu.addItem(settingsItem)
+        
+        menu.addItem(NSMenuItem.separator())
+        
+        // Goal Tracker
+        let goalTracker = NSMenuItem(title: "Goal Tracker", action: #selector(openGoalTracker), keyEquivalent: "")
+        goalTracker.target = self
+        menu.addItem(goalTracker)
+        
+        // Tasks
+        let tasksItem = NSMenuItem(title: "Tasks", action: #selector(openTasks), keyEquivalent: "")
+        tasksItem.target = self
+        menu.addItem(tasksItem)
+        
+        menu.addItem(NSMenuItem.separator())
+        
         // Sounds submenu
         let soundsMenu = NSMenu()
         
@@ -150,93 +186,10 @@ class SettingsMenu: NSObject {
         endSession.target = self
         menu.addItem(endSession)
         
-        menu.addItem(NSMenuItem.separator())
-        
-        // Toggles
-        let autoStart = NSMenuItem(title: "Auto-start Next Session", action: #selector(toggleAutoStart), keyEquivalent: "")
-        autoStart.target = self
-        autoStart.state = settings.autoStartNextSession ? .on : .off
-        menu.addItem(autoStart)
-        
-        let alwaysOnTop = NSMenuItem(title: "Always on Top", action: #selector(toggleAlwaysOnTop), keyEquivalent: "")
-        alwaysOnTop.target = self
-        alwaysOnTop.state = settings.alwaysOnTop ? .on : .off
-        menu.addItem(alwaysOnTop)
-        
-        let launchAtLogin = NSMenuItem(title: "Launch at Login", action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
-        launchAtLogin.target = self
-        launchAtLogin.state = LaunchAtLoginManager.shared.isEnabled ? .on : .off
-        menu.addItem(launchAtLogin)
-        
-        menu.addItem(NSMenuItem.separator())
-        
-        // Theme submenu
-        let themeMenu = NSMenu()
-        for theme in Theme.allCases {
-            let item = NSMenuItem(title: theme.rawValue, action: #selector(selectTheme(_:)), keyEquivalent: "")
-            item.target = self
-            item.representedObject = theme
-            if settings.selectedTheme == theme { item.state = .on }
-            themeMenu.addItem(item)
-        }
-        let themeItem = NSMenuItem(title: "Theme", action: nil, keyEquivalent: "")
-        themeItem.submenu = themeMenu
-        menu.addItem(themeItem)
-        
-        // Visuals submenu
-        let visualsMenu = NSMenu()
-        let fontMenu = NSMenu()
-        for size in [16, 24, 32, 42, 52, 64] {
-            let item = NSMenuItem(title: "\(size)px", action: #selector(setFontSize(_:)), keyEquivalent: "")
-            item.target = self
-            item.tag = size
-            if Int(settings.timerFontSize) == size { item.state = .on }
-            fontMenu.addItem(item)
-        }
-        let fontItem = NSMenuItem(title: "Font Size", action: nil, keyEquivalent: "")
-        fontItem.submenu = fontMenu
-        visualsMenu.addItem(fontItem)
-        visualsMenu.addItem(NSMenuItem.separator())
-        let glow = NSMenuItem(title: "Enable Glow", action: #selector(toggleGlow), keyEquivalent: "")
-        glow.target = self
-        glow.state = settings.enableGlow ? .on : .off
-        visualsMenu.addItem(glow)
-        let progressBar = NSMenuItem(title: "Show Progress Bar", action: #selector(toggleProgressBar), keyEquivalent: "")
-        progressBar.target = self
-        progressBar.state = settings.showProgressBar ? .on : .off
-        visualsMenu.addItem(progressBar)
-        let timerControls = NSMenuItem(title: "Timer Controls", action: #selector(toggleTimerControls), keyEquivalent: "")
-        timerControls.target = self
-        timerControls.state = settings.showTimerControls ? .on : .off
-        visualsMenu.addItem(timerControls)
-        let visualsItem = NSMenuItem(title: "Visuals", action: nil, keyEquivalent: "")
-        visualsItem.submenu = visualsMenu
-        menu.addItem(visualsItem)
-        
-        // Music submenu
-        let musicMenu = NSMenu()
-        let showMusicControls = NSMenuItem(title: "Show Music Controls", action: #selector(toggleMusicControls), keyEquivalent: "")
-        showMusicControls.target = self
-        showMusicControls.state = settings.showMusicControls ? .on : .off
-        musicMenu.addItem(showMusicControls)
-        musicMenu.addItem(NSMenuItem.separator())
-        for app in ["Spotify", "Apple Music"] {
-            let item = NSMenuItem(title: app, action: #selector(selectMusicApp(_:)), keyEquivalent: "")
-            item.target = self
-            item.representedObject = app
-            if settings.musicApp == app { item.state = .on }
-            musicMenu.addItem(item)
-        }
-        let musicItem = NSMenuItem(title: "Music", action: nil, keyEquivalent: "")
-        musicItem.submenu = musicMenu
-        menu.addItem(musicItem)
-        
-        menu.addItem(NSMenuItem.separator())
-        
-        // Goal Tracker
-        let goalTracker = NSMenuItem(title: "Goal Tracker", action: #selector(openGoalTracker), keyEquivalent: "")
-        goalTracker.target = self
-        menu.addItem(goalTracker)
+        let miniFloater = NSMenuItem(title: "Mini-Floater Mode", action: #selector(toggleMiniFloater), keyEquivalent: "")
+        miniFloater.target = self
+        miniFloater.state = settings.miniFloaterMode ? .on : .off
+        menu.addItem(miniFloater)
         
         menu.addItem(NSMenuItem.separator())
         
@@ -276,30 +229,10 @@ class SettingsMenu: NSObject {
     
     @objc func endSession() { viewModel.endCurrentSession() }
     
-    @objc func toggleAutoStart() { settings.autoStartNextSession.toggle() }
-    @objc func toggleAlwaysOnTop() { settings.alwaysOnTop.toggle() }
-    @objc func toggleLaunchAtLogin() { LaunchAtLoginManager.shared.setEnabled(!LaunchAtLoginManager.shared.isEnabled) }
-    
-    @objc func selectTheme(_ sender: NSMenuItem) {
-        if let theme = sender.representedObject as? Theme {
-            settings.selectedTheme = theme
-        }
-    }
-    
-    @objc func setFontSize(_ sender: NSMenuItem) { settings.timerFontSize = Double(sender.tag) }
-    @objc func toggleGlow() { settings.enableGlow.toggle() }
-    @objc func toggleProgressBar() { settings.showProgressBar.toggle() }
-    @objc func toggleTimerControls() { settings.showTimerControls.toggle() }
+    @objc func toggleMiniFloater() { settings.miniFloaterMode.toggle() }
     
     @objc func checkForUpdates() { UpdateManager.shared.checkForUpdates() }
     @objc func quitApp() { NSApplication.shared.terminate(nil) }
-    
-    @objc func toggleMusicControls() { settings.showMusicControls.toggle() }
-    @objc func selectMusicApp(_ sender: NSMenuItem) {
-        if let app = sender.representedObject as? String {
-            settings.musicApp = app
-        }
-    }
     
     @objc func togglePauseSoundsOnTimerPause() { settings.pauseSoundsOnTimerPause.toggle() }
     
@@ -311,6 +244,14 @@ class SettingsMenu: NSObject {
         } else {
             settings.navigateTo(.goalSetup)
         }
+    }
+    
+    @objc func openTasks() {
+        settings.navigateTo(.taskList)
+    }
+    
+    @objc func openSettings() {
+        settings.navigateTo(.settings)
     }
     
     // MARK: - Custom Sound Actions

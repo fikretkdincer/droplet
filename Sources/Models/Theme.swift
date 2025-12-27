@@ -7,7 +7,9 @@ enum Theme: String, CaseIterable, Identifiable {
     case beige = "Beige"
     case beigePlus = "Beige+"
     case navy = "Navy"
+    case navyPlus = "Navy+"
     case frog = "Frog"
+    case leaf = "Leaf"
     case blossom = "Blossom"
     case poppy = "Poppy"
     
@@ -20,6 +22,8 @@ enum Theme: String, CaseIterable, Identifiable {
         case .beige, .beigePlus: return Color(hex: "F5F1E4")
         case .navy: return Color(hex: "1C2E4A")
         case .frog: return Color(hex: "E8F3E8")
+        case .leaf: return Color(hex: "051907") // Deep Pine Green
+        case .navyPlus: return Color(hex: "0F1826") // Requested Dark Navy
         case .blossom: return Color(hex: "FFF0F5")
         case .poppy: return Color(hex: "FFE4E9")
         }
@@ -33,6 +37,8 @@ enum Theme: String, CaseIterable, Identifiable {
         case .beigePlus: return Color(hex: "1C2E4A")
         case .navy: return Color(hex: "F5F1E4")
         case .frog: return Color(hex: "2D5A27")
+        case .leaf: return Color(hex: "2D5A27") // Rich Forest Green (reusing Frog's dark accent)
+        case .navyPlus: return Color(hex: "D7C49E") // Beige accent
         case .blossom: return Color(hex: "DB7093")
         case .poppy: return Color(hex: "FF6B6B")
         }
@@ -46,6 +52,8 @@ enum Theme: String, CaseIterable, Identifiable {
         case .beigePlus: return Color(hex: "3E5C76")
         case .navy: return Color(hex: "E8E4D5")
         case .frog: return Color(hex: "7FB069")
+        case .leaf: return Color(hex: "558B2F") // Darker Sage
+        case .navyPlus: return Color(hex: "E0D5B6") // Lighter Beige for breaks
         case .blossom: return Color(hex: "EAB8C5")
         case .poppy: return Color(hex: "FF8FA3")
         }
@@ -59,6 +67,8 @@ enum Theme: String, CaseIterable, Identifiable {
         case .beigePlus: return Color(hex: "1C2E4A")
         case .navy: return Color(hex: "F5F1E4")
         case .frog: return Color(hex: "1B3022")
+        case .leaf: return Color(hex: "E8F5E9")
+        case .navyPlus: return Color(hex: "E0D5B6") // Richer Beige for text
         case .blossom: return Color(hex: "5F3E49")
         case .poppy: return Color(hex: "8B2942")
         }

@@ -22,32 +22,41 @@ struct TimerView: View {
                 // Content based on current view
                 switch settings.currentView {
                 case .timer:
-                    timerContent(geometry: geometry)
+                    if settings.miniFloaterMode {
+                        MiniTimerView(viewModel: viewModel)
+                    } else {
+                        timerContent(geometry: geometry)
+                    }
                 case .weeklyProgress:
                     InAppWeeklyProgressView()
                 case .goalSetup:
                     InAppGoalSetupView()
+                case .taskList:
+                    TaskListView()
+                case .addTask:
+                    AddTaskView()
+                case .settings:
+                    SettingsView()
                 }
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .frame(minWidth: 140, minHeight: 100)
-        .onTapGesture(count: 2) {
-            // Only enable on timer view
-            if settings.currentView == .timer {
-                viewModel.resetCurrentMode()
-            }
-        }
-        .onTapGesture(count: 1) {
-            // Only enable on timer view
-            if settings.currentView == .timer {
+        .clipShape(settings.miniFloaterMode ? AnyShape(Capsule()) : AnyShape(RoundedRectangle(cornerRadius: 12)))
+        .frame(
+            minWidth: settings.miniFloaterMode ? 90 : 140,
+            minHeight: settings.miniFloaterMode ? 32 : 100
+        )
+        .gesture(settings.currentView == .timer ? 
+            TapGesture(count: 2).onEnded { viewModel.resetCurrentMode() } : nil
+        )
+        .gesture(settings.currentView == .timer ?
+            TapGesture(count: 1).onEnded {
                 if viewModel.status == .pulsing {
                     viewModel.continueToNextPhase()
                 } else {
                     viewModel.toggleStartPause()
                 }
-            }
-        }
+            } : nil
+        )
         .overlay(
             // Native right-click handler using NSViewRepresentable
             RightClickHandler(viewModel: viewModel, settings: settings)
@@ -80,6 +89,20 @@ struct TimerView: View {
     @ViewBuilder
     private func timerContent(geometry: GeometryProxy) -> some View {
         VStack(spacing: 8) {
+            // Active task display (above timer)
+            if let activeTask = TaskManager.shared.activeTask {
+                Button(action: { settings.navigateTo(.taskList) }) {
+                    Text(activeTask.name)
+                        .font(.system(size: taskNameFontSize(for: activeTask.name, width: geometry.size.width)))
+                        .fontWeight(.medium)
+                        .foregroundColor(settings.selectedTheme.workAccent)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+                .buttonStyle(.plain)
+                .padding(.bottom, 4)
+            }
+            
             // Timer display with optional control buttons
             HStack(spacing: 6) {
                 // Play/Pause button (left)
@@ -133,10 +156,18 @@ struct TimerView: View {
                         .fill(settings.selectedTheme.textColor.opacity(0.2))
                         .frame(height: 4)
                     
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(viewModel.currentAccentColor)
-                        .frame(width: max(0, (geometry.size.width - 40) * viewModel.progressRatio), height: 4)
-                        .animation(.linear(duration: 0.5), value: viewModel.progressRatio)
+                    GeometryReader { barProxy in
+                        let totalBarWidth = barProxy.size.width
+                        let totalSeconds = Double(viewModel.totalSecondsForCurrentMode)
+                        let widthPerTick = totalSeconds > 0 ? (totalBarWidth / totalSeconds) : 0
+                        let elapsedSeconds = Double(totalSeconds - Double(viewModel.remainingSeconds))
+                        let currentWidth = min(max(elapsedSeconds * widthPerTick, 0), totalBarWidth)
+                        
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(viewModel.currentAccentColor)
+                            .frame(width: currentWidth, height: 4)
+                            .animation(.linear(duration: 1), value: currentWidth)
+                    }
                 }
                 .frame(height: 4)
                 .padding(.horizontal, 20)
@@ -163,6 +194,45 @@ struct TimerView: View {
             }
         }
         .padding(16)
+    }
+    
+    /// Calculate font size for task name based on text length and available width
+    private func taskNameFontSize(for text: String, width: CGFloat) -> CGFloat {
+        let baseSize: CGFloat = 14
+        let minSize: CGFloat = 9
+        
+        // Shorter names get larger fonts, longer names get smaller
+        let charCount = text.count
+        if charCount <= 10 {
+            return baseSize
+        } else if charCount <= 20 {
+            return 12
+        } else if charCount <= 30 {
+            return 10
+        } else {
+            return minSize
+        }
+    }
+}
+
+/// Compact view for Mini-Floater Mode
+struct MiniTimerView: View {
+    @ObservedObject var viewModel: PomodoroViewModel
+    @ObservedObject var settings = SettingsManager.shared
+    
+    var body: some View {
+        Text(viewModel.formattedTime)
+            .font(.custom("Avenir Next", size: 18))
+            .fontWeight(.bold)
+            .foregroundColor(settings.selectedTheme.textColor)
+            .monospacedDigit()
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .frame(minWidth: 90, minHeight: 32)
+            .background(settings.selectedTheme.backgroundColor)
+            .onTapGesture {
+                viewModel.toggleStartPause()
+            }
     }
 }
 

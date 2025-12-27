@@ -7,6 +7,9 @@ enum AppView {
     case timer
     case weeklyProgress
     case goalSetup
+    case taskList
+    case addTask
+    case settings
 }
 
 /// Settings manager using UserDefaults for persistence
@@ -32,6 +35,8 @@ class SettingsManager: ObservableObject {
     @AppStorage("enableGlow") var enableGlow: Bool = false
     @AppStorage("showProgressBar") var showProgressBar: Bool = true
     @AppStorage("showTimerControls") var showTimerControls: Bool = false
+    @AppStorage("showMenuBarTimer") var showMenuBarTimer: Bool = false
+    @AppStorage("miniFloaterMode") var miniFloaterMode: Bool = false
     
     // Music settings
     @AppStorage("showMusicControls") var showMusicControls: Bool = true
@@ -45,8 +50,17 @@ class SettingsManager: ObservableObject {
         set { selectedThemeRaw = newValue.rawValue }
     }
     
-    // Minimum sizes for goal tracker views
+    // Minimum sizes for in-app views
     let goalTrackerMinSize = CGSize(width: 280, height: 220)
+    let taskViewMinSize = CGSize(width: 280, height: 280)
+    let settingsMinSize = CGSize(width: 300, height: 400)
+    
+    // Mini-floater size constraints (truly compact, fixed size)
+    let miniViewMinSize = CGSize(width: 100, height: 36)
+    let miniViewMaxSize = CGSize(width: 100, height: 36)  // Same as min = not resizable
+    
+    // Saved window frame before entering mini mode
+    static var savedFrameBeforeMini: NSRect?
     
     // Reference to main window (set by AppDelegate)
     static weak var mainWindow: NSWindow?
@@ -78,11 +92,22 @@ class SettingsManager: ObservableObject {
                 window.setFrame(newFrame, display: true, animate: true)
             }
         } else {
-            // Ensure window is large enough for goal tracker
+            // Determine minimum size based on target view
+            let minSize: CGSize
+            switch view {
+            case .taskList, .addTask:
+                minSize = taskViewMinSize
+            case .settings:
+                minSize = settingsMinSize
+            default:
+                minSize = goalTrackerMinSize
+            }
+            
+            // Ensure window is large enough
             let currentSize = window.frame.size
-            if currentSize.width < goalTrackerMinSize.width || currentSize.height < goalTrackerMinSize.height {
-                let newWidth = max(currentSize.width, goalTrackerMinSize.width)
-                let newHeight = max(currentSize.height, goalTrackerMinSize.height)
+            if currentSize.width < minSize.width || currentSize.height < minSize.height {
+                let newWidth = max(currentSize.width, minSize.width)
+                let newHeight = max(currentSize.height, minSize.height)
                 let newFrame = NSRect(
                     x: window.frame.origin.x,
                     y: window.frame.origin.y - (newHeight - currentSize.height),

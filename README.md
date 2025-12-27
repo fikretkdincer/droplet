@@ -9,8 +9,11 @@ Built with Swift and SwiftUI.
 ## Features
 
 - 🍅 **Pomodoro Timer** - Work → Break → Long Break cycle
+- 📝 **Task Management** - Create tasks, assign sessions, and track focus history
+- 💊 **Mini-Floater Mode** - Tiny, pill-shaped window (100x36) for minimal distraction
+- ⏱️ **Menu Bar Timer** - Live countdown directly in your menu bar
 - 🎵 **Music Integration** - Control Spotify & Apple Music (Play/Pause, Next, Previous, Shuffle, Repeat) with Now Playing info
-- 🎨 **8 Beautiful Themes** - Dark, Light, Beige, Beige+, Navy, Frog, Blossom, Poppy
+- 🎨 **10 Beautiful Themes** - Dark, Light, Beige, Beige+, Navy, Navy+, Frog, Leaf, Blossom, Poppy
 - 🎧 **Ambient Sounds** - Forest, Train, Library, Cricket (seamless looping)
 - ✨ **Glow Effects** - Optional glowing timer and progress bar
 - 🔔 **Notifications** - Native macOS alerts when sessions end
