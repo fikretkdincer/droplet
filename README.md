@@ -32,7 +32,8 @@ Built with Swift and SwiftUI.
 1. Download `droplet-installer.dmg` from the latest release
 2. Open the DMG
 3. Drag `droplet` to `Applications`
-4. Launch from Applications or Spotlight
+4. Run xattr -d com.apple.quarantine /Applications/droplet.app/ command on terminal
+5. Launch from Applications or Spotlight
 
 > [!IMPORTANT]
 > **macOS Security Warning**
