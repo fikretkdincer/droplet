@@ -19,7 +19,6 @@ targets:
       - path: Droplet/Sources
     resources:
       - path: Droplet/Assets.xcassets
-      - path: Droplet/Resources/AppIcon.icns
       - path: Droplet/Resources/Sounds
         buildPhase: resources
     settings:

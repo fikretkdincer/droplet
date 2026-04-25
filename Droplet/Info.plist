@@ -6,7 +6,7 @@
     <string>en</string>
     <key>CFBundleExecutable</key>
     <string>droplet</string>
-    <key>CFBundleIconFile</key>
+    <key>CFBundleIconName</key>
     <string>AppIcon</string>
     <key>CFBundleIdentifier</key>
     <string>com.droplet.timer</string>
