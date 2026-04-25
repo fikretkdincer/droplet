@@ -19,8 +19,7 @@ jobs:
       id: version
       run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
     
-    - name: Install xcodegen
-      run: brew install xcodegen
+
     
     - name: Generate Xcode Project
       run: xcodegen
@@ -28,8 +27,8 @@ jobs:
     - name: Build app
       run: |
         set -e
-        # Build using xcodebuild
-        xcodebuild -project Droplet.xcodeproj -scheme Droplet -configuration Release -derivedDataPath .build build
+        # Build using xcodebuild without code signing
+        xcodebuild -project Droplet.xcodeproj -scheme Droplet -configuration Release CODE_SIGNING_ALLOWED=NO -derivedDataPath .build build
         
         # Copy the built app to the current directory
         cp -R .build/Build/Products/Release/droplet.app ./droplet.app
