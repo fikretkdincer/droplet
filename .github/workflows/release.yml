@@ -79,11 +79,11 @@ jobs:
           
           > **Note**: On first launch, right-click the app and select "Open" to bypass Gatekeeper.
           
-          ### What's New in v1.2.0
+          ### What's New
           - 📝 **Detailed View** - Timer + tasks side by side
           - 👁️ **20-20-20 Rule** - Eye health full-screen overlay
           - 🚀 **Onboarding Flow** - Quick start guide
-          - 🐛 **Bug Fixes & Refinements** - Improved stability and layout
+          - 🐛 **Bug Fixes** - Fixed window lifecycle and background bugs
         files: droplet-installer.dmg
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
