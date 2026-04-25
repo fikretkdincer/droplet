@@ -19,58 +19,26 @@ jobs:
       id: version
       run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
     
-    - name: Update version in Info.plist
-      run: |
-        VERSION=${{ steps.version.outputs.VERSION }}
-        sed -i '' "s/<string>1\.0\.0<\/string>/<string>${VERSION}<\/string>/" Resources/Info.plist
-        cat Resources/Info.plist | grep -A1 CFBundleShortVersionString
+    - name: Install xcodegen
+      run: brew install xcodegen
     
-    - name: Resolve dependencies
-      run: |
-        swift package resolve
-        echo "✅ Dependencies resolved"
+    - name: Generate Xcode Project
+      run: xcodegen
     
     - name: Build app
       run: |
         set -e
-        swift build -c release
-        echo "✅ Swift build complete"
+        # Build using xcodebuild
+        xcodebuild -project Droplet.xcodeproj -scheme Droplet -configuration Release -derivedDataPath .build build
         
-        # Create app bundle structure
-        APP_NAME="droplet"
-        APP_BUNDLE="${APP_NAME}.app"
-        CONTENTS_DIR="${APP_BUNDLE}/Contents"
-        MACOS_DIR="${CONTENTS_DIR}/MacOS"
-        RESOURCES_DIR="${CONTENTS_DIR}/Resources"
-        FRAMEWORKS_DIR="${CONTENTS_DIR}/Frameworks"
-        
-        echo "Creating app bundle..."
-        rm -rf "${APP_BUNDLE}"
-        mkdir -p "${MACOS_DIR}" "${RESOURCES_DIR}" "${FRAMEWORKS_DIR}"
-        
-        # Copy executable
-        cp ".build/release/${APP_NAME}" "${MACOS_DIR}/"
-        chmod +x "${MACOS_DIR}/${APP_NAME}"
-        
-        # Copy Info.plist
-        cp "Resources/Info.plist" "${CONTENTS_DIR}/"
-        
-        # Copy resources
-        if [ -d "Resources/Sounds" ]; then
-          echo "Copying sounds..."
-          cp -r "Resources/Sounds" "${RESOURCES_DIR}/"
-        fi
-        
-        if [ -f "Resources/AppIcon.icns" ]; then
-          echo "Copying icon..."
-          cp "Resources/AppIcon.icns" "${RESOURCES_DIR}/"
-        fi
+        # Copy the built app to the current directory
+        cp -R .build/Build/Products/Release/droplet.app ./droplet.app
         
         # Sign the app (ad-hoc) to avoid "damaged app" errors
         echo "🔐 Signing app..."
-        codesign --force --deep --sign - "${APP_BUNDLE}"
+        codesign --force --deep --sign - "droplet.app"
         
-        echo "✅ App bundle created: ${APP_BUNDLE}"
+        echo "✅ App bundle created: droplet.app"
         
     - name: Create DMG
       run: |
@@ -83,7 +51,7 @@ jobs:
         echo "Creating DMG..."
         create-dmg \
           --volname "droplet" \
-          --volicon "Resources/AppIcon.icns" \
+          --volicon "droplet.app/Contents/Resources/AppIcon.icns" \
           --window-pos 200 120 \
           --window-size 600 300 \
           --icon-size 100 \
@@ -111,14 +79,15 @@ jobs:
           
           > **Note**: On first launch, right-click the app and select "Open" to bypass Gatekeeper.
           
-          ### What's New in v1.1.8
-          - ⏭️ **Skip Break Button** - Quickly return to work mode during breaks
-          - 🖥️ **Fullscreen Mode** - Native macOS fullscreen with customizable font size (80-400pt)
-          - 🎨 **5 New Themes** - Velvet, Noir, Plum, Teal, and Emerald
-          - ⚙️ **Font Weight Selection** - Choose from Thin to Bold for your timer
-          - 🔧 **Menu Bar Timer Fix** - No more jittering during countdown (monospaced digits)
-          - 🎛️ **Quick Access Buttons** - Fullscreen & Settings buttons on the timer view
+          ### What's New
+          - 📝 **Detailed View** - Timer + tasks side by side
+          - 💊 **Mini-Floater Mode** - Tiny distraction-free window
+          - 👁️ **20-20-20 Rule** - Eye health full-screen overlay
+          - 📊 **Goal Tracker** - Weekly progress bar charts
+          - 🎶 **Music Controls** - Spotify & Apple Music integration
+          - 🌧️ **Immersive Sounds** - Rain, forest, and more
+          - 🎨 **15 Custom Themes** - Beautiful handcrafted colors
+          - 🚀 **Onboarding Flow** - Quick start guide
         files: droplet-installer.dmg
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  
