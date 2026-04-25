@@ -3,7 +3,6 @@ options:
   bundleIdPrefix: com.droplet
   deploymentTarget:
     macOS: "13.0"
-  xcodeVersion: "16.0"
   generateEmptyDirectories: true
 settings:
   base:
@@ -27,7 +26,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.droplet.timer
         INFOPLIST_FILE: Droplet/Info.plist
         CODE_SIGN_ENTITLEMENTS: Droplet/droplet.entitlements
-        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_STYLE: Manual
         CODE_SIGN_IDENTITY: "-"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks"
