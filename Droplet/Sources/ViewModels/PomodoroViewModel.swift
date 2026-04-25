@@ -8,24 +8,53 @@ class PomodoroViewModel: ObservableObject {
     @Published var status: TimerStatus = .idle
     @Published var remainingSeconds: Int = 25 * 60
     @Published var completedWorkflows: Int = 0
-    
+    @Published var elapsedSeconds: Int = 0
+
     /// Total seconds for the current session (set when timer starts, doesn't change mid-session)
     private var sessionTotalSeconds: Int = 25 * 60
-    
+
     private var timer: AnyCancellable?
     private var settings = SettingsManager.shared
     private var notifications = NotificationManager.shared
-    
+    private var settingsObserver: AnyCancellable?
+
     /// Tracks seconds worked in current session for minute-by-minute goal tracking
     private var secondsWorkedThisSession: Int = 0
     
+    /// Tracks continuous active work time for the 20-20-20 rule
+    private var continuousWorkSecondsForEyeRest: Int = 0
+
     init() {
+        if settings.infinityMode {
+            currentMode = .infinity
+        }
         resetToCurrentMode()
+
+        // Observe infinity mode toggle
+        settingsObserver = settings.objectWillChange.sink { [weak self] _ in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                if self.settings.infinityMode && self.currentMode != .infinity {
+                    self.enterInfinityMode()
+                } else if !self.settings.infinityMode && self.currentMode == .infinity {
+                    self.exitInfinityMode()
+                }
+            }
+        }
     }
     
     // MARK: - Computed Properties
     
     var formattedTime: String {
+        if currentMode == .infinity {
+            let hours = elapsedSeconds / 3600
+            let minutes = (elapsedSeconds % 3600) / 60
+            let seconds = elapsedSeconds % 60
+            if hours > 0 {
+                return String(format: "%d:%02d:%02d", hours, minutes, seconds)
+            }
+            return String(format: "%02d:%02d", minutes, seconds)
+        }
         let minutes = remainingSeconds / 60
         let seconds = remainingSeconds % 60
         return String(format: "%02d:%02d", minutes, seconds)
@@ -33,13 +62,13 @@ class PomodoroViewModel: ObservableObject {
     
     var currentAccentColor: Color {
         switch currentMode {
-        case .work:
+        case .work, .infinity:
             return settings.selectedTheme.workAccent
         case .shortBreak, .longBreak:
             return settings.selectedTheme.breakAccent
         }
     }
-    
+
     /// Check if currently on a break (short or long)
     var isOnBreak: Bool {
         currentMode == .shortBreak || currentMode == .longBreak
@@ -84,6 +113,8 @@ class PomodoroViewModel: ObservableObject {
             return settings.shortBreakDuration * 60
         case .longBreak:
             return settings.longBreakDuration * 60
+        case .infinity:
+            return 0
         }
     }
     
@@ -102,10 +133,13 @@ class PomodoroViewModel: ObservableObject {
     /// Double click: Reset current mode
     func resetCurrentMode() {
         stopTimer()
+        if currentMode == .infinity {
+            elapsedSeconds = 0
+        }
         resetToCurrentMode()
         status = .idle
         secondsWorkedThisSession = 0
-        
+
         // Stop ambient sounds on reset (like pausing)
         if settings.pauseSoundsOnTimerPause {
             SoundManager.shared.stop()
@@ -123,7 +157,7 @@ class PomodoroViewModel: ObservableObject {
             }
         
         // Resume sounds if they were paused
-        if settings.pauseSoundsOnTimerPause && currentMode == .work {
+        if settings.pauseSoundsOnTimerPause && (currentMode == .work || currentMode == .infinity) {
             if SoundManager.shared.currentSound != .none || SoundManager.shared.currentCustomSound != nil {
                 if !SoundManager.shared.isPlaying {
                     SoundManager.shared.toggle()
@@ -149,24 +183,52 @@ class PomodoroViewModel: ObservableObject {
     }
     
     private func tick() {
+        // Infinity mode: count up
+        if currentMode == .infinity {
+            elapsedSeconds += 1
+            secondsWorkedThisSession += 1
+            if secondsWorkedThisSession >= 60 {
+                secondsWorkedThisSession = 0
+                if let milestone = GoalTracker.shared.recordWorkSession(minutes: 1) {
+                    sendMilestoneNotification(milestone: milestone)
+                }
+                TaskManager.shared.recordMinuteForActiveTask()
+            }
+            
+            if settings.enable202020Rule {
+                continuousWorkSecondsForEyeRest += 1
+                if continuousWorkSecondsForEyeRest >= 1200 {
+                    continuousWorkSecondsForEyeRest = 0
+                    NotificationCenter.default.post(name: Notification.Name("TriggerEyeRestOverlay"), object: nil)
+                }
+            }
+            return
+        }
+
         guard remainingSeconds > 0 else { return }
-        
+
         remainingSeconds -= 1
-        
+
         // Track goal progress every minute during work sessions
         if currentMode == .work {
             secondsWorkedThisSession += 1
             if secondsWorkedThisSession >= 60 {
                 secondsWorkedThisSession = 0
-                // Record 1 minute of work and check for milestones
                 if let milestone = GoalTracker.shared.recordWorkSession(minutes: 1) {
                     sendMilestoneNotification(milestone: milestone)
                 }
-                // Also record to active task (if any)
                 TaskManager.shared.recordMinuteForActiveTask()
             }
+            
+            if settings.enable202020Rule {
+                continuousWorkSecondsForEyeRest += 1
+                if continuousWorkSecondsForEyeRest >= 1200 {
+                    continuousWorkSecondsForEyeRest = 0
+                    NotificationCenter.default.post(name: Notification.Name("TriggerEyeRestOverlay"), object: nil)
+                }
+            }
         }
-        
+
         if remainingSeconds == 0 {
             handleSessionComplete()
         }
@@ -209,6 +271,8 @@ class PomodoroViewModel: ObservableObject {
             notifications.sendBreakEndNotification()
         case .longBreak:
             notifications.sendLongBreakEndNotification()
+        case .infinity:
+            break
         }
     }
     
@@ -232,12 +296,20 @@ class PomodoroViewModel: ObservableObject {
             if SoundManager.shared.currentSound != .none || SoundManager.shared.currentCustomSound != nil {
                 SoundManager.shared.toggle()
             }
+        case .infinity:
+            break
         }
         resetToCurrentMode()
     }
     
     private func resetToCurrentMode() {
         sessionTotalSeconds = totalSecondsForCurrentMode
+        
+        // Reset eye rest counter on break start
+        if currentMode == .shortBreak || currentMode == .longBreak {
+            continuousWorkSecondsForEyeRest = 0
+        }
+        
         remainingSeconds = sessionTotalSeconds
     }
     
@@ -251,9 +323,37 @@ class PomodoroViewModel: ObservableObject {
     
     /// End current session and move to next phase (increment workflow if work ended)
     func endCurrentSession() {
+        if currentMode == .infinity {
+            stopTimer()
+            elapsedSeconds = 0
+            secondsWorkedThisSession = 0
+            status = .idle
+            return
+        }
         stopTimer()
-        sendNotification()  // Notify user about session end
+        sendNotification()
         switchToNextMode()
         status = .idle
+    }
+
+    // MARK: - Infinity Mode
+
+    func enterInfinityMode() {
+        stopTimer()
+        currentMode = .infinity
+        elapsedSeconds = 0
+        remainingSeconds = 0
+        completedWorkflows = 0
+        secondsWorkedThisSession = 0
+        status = .idle
+    }
+
+    func exitInfinityMode() {
+        stopTimer()
+        currentMode = .work
+        elapsedSeconds = 0
+        secondsWorkedThisSession = 0
+        status = .idle
+        resetToCurrentMode()
     }
 }

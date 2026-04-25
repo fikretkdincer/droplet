@@ -5,19 +5,7 @@ struct TaskListView: View {
     @ObservedObject var taskManager = TaskManager.shared
     @ObservedObject var settings = SettingsManager.shared
     
-    @State private var newTaskName: String = ""
-    @State private var newTaskDuration: Int? = nil
-    @State private var showingDurationPicker = false
     @State private var showingArchived = false
-    
-    let durationOptions: [(String, Int?)] = [
-        ("Unlimited", nil),
-        ("30 min", 30),
-        ("1 hour", 60),
-        ("2 hours", 120),
-        ("3 hours", 180),
-        ("4 hours", 240)
-    ]
     
     var body: some View {
         VStack(spacing: 12) {
@@ -90,45 +78,6 @@ struct TaskListView: View {
         .padding(12)
     }
     
-    private func durationLabel(_ minutes: Int?) -> String {
-        guard let mins = minutes else { return "∞" }
-        if mins >= 60 {
-            return "\(mins / 60)h"
-        }
-        return "\(mins)m"
-    }
-    
-    private func addTask() {
-        let name = newTaskName.trimmingCharacters(in: .whitespaces)
-        guard !name.isEmpty else { return }
-        taskManager.addTask(name: name, targetMinutes: newTaskDuration)
-        newTaskName = ""
-        newTaskDuration = nil
-    }
-    
-    private func showAddTaskDialog() {
-        let alert = NSAlert()
-        alert.messageText = "Add New Task"
-        alert.informativeText = "Enter a name for your task:"
-        alert.alertStyle = .informational
-        alert.addButton(withTitle: "Create")
-        alert.addButton(withTitle: "Cancel")
-        
-        let inputField = NSTextField(frame: NSRect(x: 0, y: 0, width: 250, height: 24))
-        inputField.placeholderString = "e.g. Study for Math Exam"
-        alert.accessoryView = inputField
-        
-        // Make the input field first responder
-        alert.window.initialFirstResponder = inputField
-        
-        let response = alert.runModal()
-        if response == .alertFirstButtonReturn {
-            let taskName = inputField.stringValue.trimmingCharacters(in: .whitespaces)
-            if !taskName.isEmpty {
-                taskManager.addTask(name: taskName, targetMinutes: nil)
-            }
-        }
-    }
 }
 
 /// Individual task row

@@ -5,6 +5,9 @@ import AppKit
 /// Handles macOS system notifications and sounds for timer events
 class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     static let shared = NotificationManager()
+
+    private var alertSound: NSSound?
+    private var milestoneSound: NSSound?
     
     private override init() {
         super.init()
@@ -47,21 +50,19 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     
     /// Play system alert sound for session end
     func playAlertSound() {
-        // Play the system "Glass" sound (a pleasant beep)
-        NSSound.beep()
-        
-        // Alternative: play a specific system sound
         if let sound = NSSound(named: "Glass") {
+            alertSound = sound
             sound.play()
+        } else {
+            NSSound.beep()
         }
     }
-    
+
     /// Play distinct sound for milestone notifications
     func playMilestoneSound() {
-        // Use "Hero" or "Purr" for a different, uplifting sound
-        if let sound = NSSound(named: "Hero") {
-            sound.play()
-        } else if let sound = NSSound(named: "Purr") {
+        let sound = NSSound(named: "Hero") ?? NSSound(named: "Purr")
+        if let sound = sound {
+            milestoneSound = sound
             sound.play()
         } else {
             NSSound.beep()

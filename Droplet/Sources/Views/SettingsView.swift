@@ -6,11 +6,24 @@ struct SettingsView: View {
     @ObservedObject var settings = SettingsManager.shared
     
     @State private var fontSizeText: String = ""
-    
-    let workDurationOptions = [10, 15, 20, 25, 30, 45, 50, 60]
-    let breakDurationOptions = [3, 5, 10, 15]
-    let longBreakDurationOptions = [10, 15, 20, 30]
+    @State private var newDurationText: String = ""
+    @State private var newDurationType: String = "Work"
+
+    let workDurationDefaults = [10, 15, 20, 25, 30, 45, 50, 60]
+    let breakDurationDefaults = [3, 5, 10, 15]
+    let longBreakDurationDefaults = [10, 15, 20, 30]
     let workflowOptions = [2, 3, 4, 5]
+    let durationTypes = ["Work", "Break", "Long Break"]
+
+    private var workDurationOptions: [Int] {
+        (workDurationDefaults + settings.customWorkDurations).sorted()
+    }
+    private var breakDurationOptions: [Int] {
+        (breakDurationDefaults + settings.customBreakDurations).sorted()
+    }
+    private var longBreakDurationOptions: [Int] {
+        (longBreakDurationDefaults + settings.customLongBreakDurations).sorted()
+    }
     
     var body: some View {
         VStack(spacing: 0) {
@@ -40,6 +53,11 @@ struct SettingsView: View {
             // Scrollable Content
             ScrollView {
                 VStack(spacing: 16) {
+                    // Mode Section
+                    settingsSection(title: "Mode") {
+                        toggleRow(label: "Infinity Mode", isOn: $settings.infinityMode)
+                    }
+
                     // Timer Section
                     settingsSection(title: "Timer") {
                         settingRow(label: "Work") {
@@ -54,7 +72,7 @@ struct SettingsView: View {
                             .cornerRadius(6)
                             .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.gray.opacity(0.2), lineWidth: 1))
                         }
-                        
+
                         settingRow(label: "Break") {
                             Picker("", selection: $settings.shortBreakDuration) {
                                 ForEach(breakDurationOptions, id: \.self) { min in
@@ -67,7 +85,7 @@ struct SettingsView: View {
                             .cornerRadius(6)
                             .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.gray.opacity(0.2), lineWidth: 1))
                         }
-                        
+
                         settingRow(label: "Long Break") {
                             Picker("", selection: $settings.longBreakDuration) {
                                 ForEach(longBreakDurationOptions, id: \.self) { min in
@@ -95,6 +113,59 @@ struct SettingsView: View {
                         }
                     }
                     
+                    // Custom Durations Section
+                    settingsSection(title: "Custom Durations") {
+                        // Add new duration row
+                        HStack(spacing: 6) {
+                            Picker("", selection: $newDurationType) {
+                                ForEach(durationTypes, id: \.self) { type in
+                                    Text(type).tag(type)
+                                }
+                            }
+                            .labelsHidden()
+                            .frame(width: 100)
+                            .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                            .cornerRadius(6)
+                            .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.gray.opacity(0.2), lineWidth: 1))
+
+                            TextField("min", text: $newDurationText)
+                                .textFieldStyle(.plain)
+                                .font(.system(size: 12))
+                                .foregroundColor(settings.selectedTheme.textColor)
+                                .frame(width: 40)
+                                .multilineTextAlignment(.center)
+                                .padding(4)
+                                .background(settings.selectedTheme.textColor.opacity(0.1))
+                                .cornerRadius(4)
+
+                            Button(action: addCustomDuration) {
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.system(size: 16))
+                                    .foregroundColor(settings.selectedTheme.workAccent)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 8)
+
+                        // List custom durations with delete buttons
+                        ForEach(settings.customWorkDurations.sorted(), id: \.self) { min in
+                            customDurationRow(label: "Work", minutes: min) {
+                                settings.customWorkDurations.removeAll { $0 == min }
+                            }
+                        }
+                        ForEach(settings.customBreakDurations.sorted(), id: \.self) { min in
+                            customDurationRow(label: "Break", minutes: min) {
+                                settings.customBreakDurations.removeAll { $0 == min }
+                            }
+                        }
+                        ForEach(settings.customLongBreakDurations.sorted(), id: \.self) { min in
+                            customDurationRow(label: "Long Break", minutes: min) {
+                                settings.customLongBreakDurations.removeAll { $0 == min }
+                            }
+                        }
+                    }
+
                     // Appearance Section
                     settingsSection(title: "Appearance") {
                         settingRow(label: "Theme") {
@@ -214,6 +285,7 @@ struct SettingsView: View {
                         toggleRow(label: "Auto-Start Sessions", isOn: $settings.autoStartNextSession)
                         toggleRow(label: "Always on Top", isOn: $settings.alwaysOnTop)
                         toggleRow(label: "Click Actions", isOn: $settings.enableClickActions)
+                        toggleRow(label: "20-20-20 Rule (Eye Health)", isOn: $settings.enable202020Rule)
                         
                         settingRow(label: "Launch at Login") {
                             Toggle("", isOn: Binding(
@@ -223,6 +295,15 @@ struct SettingsView: View {
                             .toggleStyle(.switch)
                             .labelsHidden()
                         }
+
+                        settingRow(label: "Onboarding") {
+                            Button("Revisit") {
+                                NotificationCenter.default.post(name: Notification.Name("ShowOnboardingNotification"), object: nil)
+                            }
+                            .buttonStyle(.plain)
+                            .font(.system(size: 11))
+                            .foregroundColor(settings.selectedTheme.workAccent)
+                        }
                     }
                 }
                 .padding(12)
@@ -230,6 +311,50 @@ struct SettingsView: View {
         }
     }
     
+    // MARK: - Actions
+
+    private func addCustomDuration() {
+        guard let minutes = Int(newDurationText), minutes > 0 else { return }
+        switch newDurationType {
+        case "Work":
+            if !workDurationDefaults.contains(minutes) && !settings.customWorkDurations.contains(minutes) {
+                settings.customWorkDurations.append(minutes)
+            }
+        case "Break":
+            if !breakDurationDefaults.contains(minutes) && !settings.customBreakDurations.contains(minutes) {
+                settings.customBreakDurations.append(minutes)
+            }
+        case "Long Break":
+            if !longBreakDurationDefaults.contains(minutes) && !settings.customLongBreakDurations.contains(minutes) {
+                settings.customLongBreakDurations.append(minutes)
+            }
+        default:
+            break
+        }
+        newDurationText = ""
+    }
+
+    @ViewBuilder
+    private func customDurationRow(label: String, minutes: Int, onDelete: @escaping () -> Void) -> some View {
+        HStack {
+            Text(label)
+                .font(.system(size: 11))
+                .foregroundColor(settings.selectedTheme.textColor.opacity(0.6))
+            Text("\(minutes) min")
+                .font(.system(size: 12))
+                .foregroundColor(settings.selectedTheme.textColor)
+            Spacer()
+            Button(action: onDelete) {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 14))
+                    .foregroundColor(.red.opacity(0.6))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+    }
+
     // MARK: - Helper Views
     
     @ViewBuilder

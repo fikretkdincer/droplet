@@ -5,12 +5,14 @@ enum TimerMode: String, CaseIterable {
     case work = "Work"
     case shortBreak = "Break"
     case longBreak = "Long Break"
-    
+    case infinity = "Infinity"
+
     var icon: String {
         switch self {
         case .work: return "💧"
         case .shortBreak: return "🌿"
         case .longBreak: return "🌊"
+        case .infinity: return "∞"
         }
     }
 }

@@ -1,21 +1,29 @@
 # macOS
 .DS_Store
 
-# Build artifacts (DMG is built by GitHub Actions for releases)
-.build/
+# Editor/Tool metadata
+.claude/
+.vscode/
+.idea/
+
+# Local notes
+TODO.md
+
+# Build artifacts
 droplet.app/
 droplet_rw.dmg
 droplet-installer.dmg
 
-# Xcode (macOS app only - iOS project is tracked)
+# Xcode generated project (regenerate with `xcodegen`)
 *.xcodeproj/
-!DropletMobile/DropletMobile.xcodeproj/
 *.xcworkspace/
 xcuserdata/
+DerivedData/
 
 # Icon build artifacts
 Resources/AppIcon.iconset/
 
 # Swift Package Manager
+.build/
 .swiftpm/
 Package.resolved

@@ -27,7 +27,7 @@ class SettingsManager: ObservableObject {
     @AppStorage("longBreakDuration") var longBreakDuration: Int = 15
     @AppStorage("workflowCount") var workflowCount: Int = 4
     @AppStorage("autoStartNextSession") var autoStartNextSession: Bool = true
-    @AppStorage("alwaysOnTop") var alwaysOnTop: Bool = false
+    @AppStorage("alwaysOnTop") var alwaysOnTop: Bool = true
     @AppStorage("enableClickActions") var enableClickActions: Bool = false
     @AppStorage("selectedTheme") var selectedThemeRaw: String = "Dark"
     
@@ -40,6 +40,8 @@ class SettingsManager: ObservableObject {
     @AppStorage("showTimerControls") var showTimerControls: Bool = false
     @AppStorage("showMenuBarTimer") var showMenuBarTimer: Bool = false
     @AppStorage("miniFloaterMode") var miniFloaterMode: Bool = false
+    @AppStorage("detailedView") var detailedView: Bool = false
+    @AppStorage("enable202020Rule") var enable202020Rule: Bool = false
     
     // Music settings
     @AppStorage("showMusicControls") var showMusicControls: Bool = true
@@ -47,7 +49,28 @@ class SettingsManager: ObservableObject {
     
     // Sound behavior
     @AppStorage("pauseSoundsOnTimerPause") var pauseSoundsOnTimerPause: Bool = true
-    
+
+    // Mode
+    @AppStorage("infinityMode") var infinityMode: Bool = false
+
+    // Custom durations (stored as JSON arrays)
+    @AppStorage("customWorkDurations") var customWorkDurationsData: String = "[]"
+    @AppStorage("customBreakDurations") var customBreakDurationsData: String = "[]"
+    @AppStorage("customLongBreakDurations") var customLongBreakDurationsData: String = "[]"
+
+    var customWorkDurations: [Int] {
+        get { (try? JSONDecoder().decode([Int].self, from: Data(customWorkDurationsData.utf8))) ?? [] }
+        set { customWorkDurationsData = (try? String(data: JSONEncoder().encode(newValue), encoding: .utf8)) ?? "[]" }
+    }
+    var customBreakDurations: [Int] {
+        get { (try? JSONDecoder().decode([Int].self, from: Data(customBreakDurationsData.utf8))) ?? [] }
+        set { customBreakDurationsData = (try? String(data: JSONEncoder().encode(newValue), encoding: .utf8)) ?? "[]" }
+    }
+    var customLongBreakDurations: [Int] {
+        get { (try? JSONDecoder().decode([Int].self, from: Data(customLongBreakDurationsData.utf8))) ?? [] }
+        set { customLongBreakDurationsData = (try? String(data: JSONEncoder().encode(newValue), encoding: .utf8)) ?? "[]" }
+    }
+
     var selectedTheme: Theme {
         get { Theme(rawValue: selectedThemeRaw) ?? .dark }
         set { selectedThemeRaw = newValue.rawValue }
@@ -57,6 +80,7 @@ class SettingsManager: ObservableObject {
     let goalTrackerMinSize = CGSize(width: 280, height: 220)
     let taskViewMinSize = CGSize(width: 280, height: 280)
     let settingsMinSize = CGSize(width: 300, height: 400)
+    let detailedViewMinSize = CGSize(width: 500, height: 340)
     
     // Mini-floater size constraints (truly compact, fixed size)
     let miniViewMinSize = CGSize(width: 100, height: 36)
@@ -64,6 +88,9 @@ class SettingsManager: ObservableObject {
     
     // Saved window frame before entering mini mode
     static var savedFrameBeforeMini: NSRect?
+
+    // Saved window frame before entering detailed view
+    static var savedFrameBeforeDetailed: NSRect?
     
     // Reference to main window (set by AppDelegate)
     static weak var mainWindow: NSWindow?
@@ -126,5 +153,8 @@ class SettingsManager: ObservableObject {
         }
     }
     
-    private init() {}
+    private init() {
+        // Always start in normal mode regardless of last state
+        detailedView = false
+    }
 }

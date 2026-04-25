@@ -25,6 +25,8 @@ struct TimerView: View {
                 case .timer:
                     if settings.miniFloaterMode {
                         MiniTimerView(viewModel: viewModel)
+                    } else if settings.detailedView {
+                        DetailedTimerView(viewModel: viewModel)
                     } else {
                         timerContent(geometry: geometry)
                     }
@@ -215,8 +217,8 @@ struct TimerView: View {
                 }
             }
             
-            // Progress bar
-            if settings.showProgressBar && geometry.size.width >= 100 {
+            // Progress bar (hidden in infinity mode)
+            if settings.showProgressBar && geometry.size.width >= 100 && viewModel.currentMode != .infinity {
                 ZStack(alignment: .leading) {
                     RoundedRectangle(cornerRadius: 4)
                         .fill(settings.selectedTheme.textColor.opacity(0.2))
@@ -239,18 +241,39 @@ struct TimerView: View {
                 .padding(.horizontal, 20)
             }
             
-            // Workflow counter
-            HStack(spacing: 4 * fullscreenScale) {
-                ForEach(0..<settings.workflowCount, id: \.self) { index in
-                    let isHighlighted = viewModel.currentMode == .longBreak ||
-                        (viewModel.currentMode == .work && index <= viewModel.completedWorkflows) ||
-                        (viewModel.currentMode != .work && index < viewModel.completedWorkflows)
-                    Circle()
-                        .fill(isHighlighted ? viewModel.currentAccentColor : settings.selectedTheme.textColor.opacity(0.3))
-                        .frame(width: 6 * fullscreenScale, height: 6 * fullscreenScale)
+            // Workflow counter (hidden in infinity mode)
+            if viewModel.currentMode != .infinity {
+                HStack(spacing: 4 * fullscreenScale) {
+                    ForEach(0..<settings.workflowCount, id: \.self) { index in
+                        let isHighlighted = viewModel.currentMode == .longBreak ||
+                            (viewModel.currentMode == .work && index <= viewModel.completedWorkflows) ||
+                            (viewModel.currentMode != .work && index < viewModel.completedWorkflows)
+                        Circle()
+                            .fill(isHighlighted ? viewModel.currentAccentColor : settings.selectedTheme.textColor.opacity(0.3))
+                            .frame(width: 6 * fullscreenScale, height: 6 * fullscreenScale)
+                    }
                 }
+                .padding(.top, isFullscreen ? 16 : 4)
+            } else {
+                // End infinity mode button
+                Button(action: {
+                    settings.infinityMode = false
+                }) {
+                    HStack(spacing: 4 * fullscreenScale) {
+                        Text("End ∞")
+                            .font(.system(size: 10 * fullscreenScale, weight: .medium))
+                    }
+                    .foregroundColor(viewModel.currentAccentColor)
+                    .padding(.horizontal, 10 * fullscreenScale)
+                    .padding(.vertical, 4 * fullscreenScale)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6 * fullscreenScale)
+                            .fill(viewModel.currentAccentColor.opacity(0.15))
+                    )
+                }
+                .buttonStyle(.plain)
+                .padding(.top, isFullscreen ? 16 : 4)
             }
-            .padding(.top, isFullscreen ? 16 : 4)
             
             // Skip Break button (only visible during breaks)
             if viewModel.isOnBreak && geometry.size.height >= 120 {
@@ -328,7 +351,8 @@ struct InAppWeeklyProgressView: View {
     @ObservedObject var goalTracker = GoalTracker.shared
     @ObservedObject var settings = SettingsManager.shared
     @State private var weekOffset: Int = 0
-    
+    @State private var hoveredDay: Date? = nil
+
     var body: some View {
         VStack(spacing: 12) {
             // Header with back button
@@ -385,33 +409,44 @@ struct InAppWeeklyProgressView: View {
             .padding(.horizontal, 16)
             
             // Bar chart
+            let weekData = goalTracker.getWeekData(weekOffset: weekOffset)
             HStack(alignment: .bottom, spacing: 8) {
-                let weekData = goalTracker.getWeekData(weekOffset: weekOffset)
                 ForEach(Array(weekData.enumerated()), id: \.offset) { _, day in
+                    let progress = goalTracker.dailyGoalMinutes > 0
+                        ? Double(day.minutes) / Double(goalTracker.dailyGoalMinutes)
+                        : 0
+                    let barColor: Color = progress >= 1.25 ? Color(hex: "FFD700") :
+                                          progress >= 1.0 ? Color(hex: "4CAF50") :
+                                          settings.selectedTheme.workAccent
+                    let isHovered = hoveredDay == day.date
+
                     VStack(spacing: 2) {
-                        let progress = goalTracker.dailyGoalMinutes > 0 
-                            ? Double(day.minutes) / Double(goalTracker.dailyGoalMinutes) 
-                            : 0
-                        let barColor: Color = progress >= 1.25 ? Color(hex: "FFD700") :
-                                              progress >= 1.0 ? Color(hex: "4CAF50") :
-                                              settings.selectedTheme.workAccent
-                        
                         RoundedRectangle(cornerRadius: 3)
                             .fill(barColor)
                             .frame(width: 24, height: max(4, min(CGFloat(progress) * 60, 80)))
                             .shadow(color: progress >= 1.25 ? barColor.opacity(0.6) : .clear, radius: progress >= 1.25 ? 4 : 0)
-                        
+                            .opacity(isHovered ? 0.7 : 1.0)
+
                         Text(day.dayName.prefix(1))
                             .font(.system(size: 8))
                             .foregroundColor(settings.selectedTheme.textColor.opacity(0.5))
+                    }
+                    .onHover { hovering in
+                        hoveredDay = hovering ? day.date : nil
                     }
                 }
             }
             .frame(height: 90)
             .padding(.horizontal, 8)
-            
-            // Today's summary
-            if goalTracker.hasGoalSet {
+
+            // Hovered day info or today's summary
+            if let hovered = hoveredDay,
+               let day = weekData.first(where: { $0.date == hovered }) {
+                Text(dayTooltip(date: day.date, minutes: day.minutes))
+                    .font(.system(size: 10))
+                    .foregroundColor(settings.selectedTheme.textColor.opacity(0.8))
+                    .transition(.opacity)
+            } else if goalTracker.hasGoalSet {
                 let progress = goalTracker.getTodayProgress()
                 Text("Today: \(GoalTracker.formatMinutes(goalTracker.getTodayMinutes())) / \(GoalTracker.formatMinutes(goalTracker.dailyGoalMinutes)) (\(Int(progress * 100))%)")
                     .font(.system(size: 10))
@@ -419,6 +454,23 @@ struct InAppWeeklyProgressView: View {
             }
         }
         .padding(12)
+    }
+
+    private func dayTooltip(date: Date, minutes: Int) -> String {
+        let df = DateFormatter()
+        df.dateFormat = "yy.MM.dd"
+        let dateStr = df.string(from: date)
+        let hours = minutes / 60
+        let mins = minutes % 60
+        if minutes == 0 {
+            return "\(dateStr) — No work"
+        } else if hours > 0 && mins > 0 {
+            return "\(dateStr) — \(hours) hour\(hours == 1 ? "" : "s") \(mins) min"
+        } else if hours > 0 {
+            return "\(dateStr) — \(hours) hour\(hours == 1 ? "" : "s")"
+        } else {
+            return "\(dateStr) — \(mins) min"
+        }
     }
 }
 
@@ -512,6 +564,417 @@ struct InAppGoalSetupView: View {
 }
 
 
+/// Detailed view with timer on left, tasks + goal on right
+struct DetailedTimerView: View {
+    @ObservedObject var viewModel: PomodoroViewModel
+    @ObservedObject var settings = SettingsManager.shared
+    @ObservedObject var taskManager = TaskManager.shared
+    @ObservedObject var goalTracker = GoalTracker.shared
+    @State private var pulseAnimation = false
+    @State private var showingAddTask = false
+    @State private var newTaskName = ""
+    @State private var newTaskDuration: Int? = nil
+
+    private let durationOptions: [(String, Int?)] = [
+        ("∞", nil), ("30m", 30), ("1h", 60), ("2h", 120), ("3h", 180), ("4h", 240)
+    ]
+
+    var body: some View {
+        HStack(spacing: 0) {
+            // Left 2/3: Timer
+            VStack(spacing: 12) {
+                Spacer()
+
+                // Mode label
+                Text(viewModel.currentMode.rawValue)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(viewModel.currentAccentColor.opacity(0.8))
+                    .textCase(.uppercase)
+
+                // Timer display
+                Text(viewModel.formattedTime)
+                    .font(.custom("Avenir Next", size: 64))
+                    .fontWeight(timerFontWeight)
+                    .foregroundColor(settings.selectedTheme.textColor)
+                    .monospacedDigit()
+                    .opacity(viewModel.status == .pulsing ? (pulseAnimation ? 0.5 : 1.0) : 1.0)
+                    .minimumScaleFactor(0.3)
+                    .lineLimit(1)
+                    .shadow(
+                        color: settings.enableGlow ? viewModel.currentAccentColor.opacity(0.6) : .clear,
+                        radius: settings.enableGlow ? 10 : 0
+                    )
+
+                // Progress bar (hidden in infinity mode)
+                if viewModel.currentMode != .infinity {
+                    ZStack(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(settings.selectedTheme.textColor.opacity(0.2))
+                            .frame(height: 4)
+
+                        GeometryReader { barProxy in
+                            let total = Double(viewModel.totalSecondsForCurrentMode)
+                            let elapsed = total - Double(viewModel.remainingSeconds)
+                            let ratio = total > 0 ? min(max(elapsed / total, 0), 1) : 0
+
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(viewModel.currentAccentColor)
+                                .frame(width: barProxy.size.width * ratio, height: 4)
+                                .animation(.linear(duration: 1), value: ratio)
+                        }
+                    }
+                    .frame(height: 4)
+                    .padding(.horizontal, 30)
+
+                    // Workflow dots
+                    HStack(spacing: 5) {
+                        ForEach(0..<settings.workflowCount, id: \.self) { index in
+                            let isHighlighted = viewModel.currentMode == .longBreak ||
+                                (viewModel.currentMode == .work && index <= viewModel.completedWorkflows) ||
+                                (viewModel.currentMode != .work && index < viewModel.completedWorkflows)
+                            Circle()
+                                .fill(isHighlighted ? viewModel.currentAccentColor : settings.selectedTheme.textColor.opacity(0.3))
+                                .frame(width: 7, height: 7)
+                        }
+                    }
+                } else {
+                    // End infinity button
+                    Button(action: { settings.infinityMode = false }) {
+                        Text("End ∞")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(viewModel.currentAccentColor)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 5)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(viewModel.currentAccentColor.opacity(0.15))
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                // Controls
+                HStack(spacing: 20) {
+                    Button(action: { viewModel.resetCurrentMode() }) {
+                        Image(systemName: "arrow.counterclockwise")
+                            .font(.system(size: 14))
+                            .foregroundColor(settings.selectedTheme.textColor.opacity(0.5))
+                    }
+                    .buttonStyle(.plain)
+
+                    Button(action: {
+                        if viewModel.status == .pulsing {
+                            viewModel.continueToNextPhase()
+                        } else {
+                            viewModel.toggleStartPause()
+                        }
+                    }) {
+                        Image(systemName: viewModel.status == .running ? "pause.circle.fill" : "play.circle.fill")
+                            .font(.system(size: 32))
+                            .foregroundColor(viewModel.currentAccentColor)
+                    }
+                    .buttonStyle(.plain)
+
+                    if viewModel.isOnBreak {
+                        Button(action: { viewModel.skipBreak() }) {
+                            Image(systemName: "forward.end.fill")
+                                .font(.system(size: 14))
+                                .foregroundColor(settings.selectedTheme.textColor.opacity(0.5))
+                        }
+                        .buttonStyle(.plain)
+                    } else {
+                        Color.clear.frame(width: 14, height: 14)
+                    }
+                }
+
+                Spacer()
+
+                // Music controls at the bottom
+                if settings.showMusicControls {
+                    MusicControlsView()
+                        .padding(.bottom, 12)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 16)
+
+            // Divider
+            Rectangle()
+                .fill(settings.selectedTheme.textColor.opacity(0.1))
+                .frame(width: 1)
+                .padding(.vertical, 16)
+
+            // Right side: Tasks + Playlist drawer + Goal
+            VStack(spacing: 0) {
+                // Tasks section — fills all available space
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 6) {
+                        Text("Tasks")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(settings.selectedTheme.textColor.opacity(0.5))
+                            .textCase(.uppercase)
+
+                        Button(action: {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                showingAddTask.toggle()
+                                if !showingAddTask {
+                                    newTaskName = ""
+                                    newTaskDuration = nil
+                                }
+                            }
+                        }) {
+                            Image(systemName: showingAddTask ? "xmark.circle.fill" : "plus.circle.fill")
+                                .font(.system(size: 11))
+                                .foregroundColor(showingAddTask ? settings.selectedTheme.textColor.opacity(0.5) : settings.selectedTheme.workAccent)
+                        }
+                        .buttonStyle(.plain)
+                        .help(showingAddTask ? "Cancel" : "Add Task")
+
+                        Spacer()
+                    }
+
+                    // Inline add task form
+                    if showingAddTask {
+                        VStack(spacing: 8) {
+                            TextField("Task name", text: $newTaskName)
+                                .textFieldStyle(.plain)
+                                .font(.system(size: 11))
+                                .foregroundColor(settings.selectedTheme.textColor)
+                                .padding(6)
+                                .background(settings.selectedTheme.textColor.opacity(0.1))
+                                .cornerRadius(6)
+
+                            HStack(spacing: 4) {
+                                ForEach(durationOptions, id: \.1) { option in
+                                    Button(action: { newTaskDuration = option.1 }) {
+                                        Text(option.0)
+                                            .font(.system(size: 9, weight: .medium))
+                                            .foregroundColor(newTaskDuration == option.1 ? settings.selectedTheme.backgroundColor : settings.selectedTheme.textColor)
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 3)
+                                            .background(
+                                                RoundedRectangle(cornerRadius: 4)
+                                                    .fill(newTaskDuration == option.1 ? settings.selectedTheme.workAccent : settings.selectedTheme.textColor.opacity(0.1))
+                                            )
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+
+                            Button(action: {
+                                let name = newTaskName.trimmingCharacters(in: .whitespaces)
+                                guard !name.isEmpty else { return }
+                                taskManager.addTask(name: name, targetMinutes: newTaskDuration)
+                                newTaskName = ""
+                                newTaskDuration = nil
+                                withAnimation(.easeInOut(duration: 0.2)) { showingAddTask = false }
+                            }) {
+                                Text("Create")
+                                    .font(.system(size: 10, weight: .semibold))
+                                    .foregroundColor(newTaskName.trimmingCharacters(in: .whitespaces).isEmpty ? settings.selectedTheme.textColor.opacity(0.4) : settings.selectedTheme.backgroundColor)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 5)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 5)
+                                            .fill(newTaskName.trimmingCharacters(in: .whitespaces).isEmpty ? settings.selectedTheme.textColor.opacity(0.1) : settings.selectedTheme.workAccent)
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(newTaskName.trimmingCharacters(in: .whitespaces).isEmpty)
+                        }
+                        .padding(8)
+                        .background(RoundedRectangle(cornerRadius: 8).fill(settings.selectedTheme.textColor.opacity(0.05)))
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
+
+                    ScrollView {
+                        LazyVStack(spacing: 4) {
+                            if taskManager.activeTasks.isEmpty && !showingAddTask {
+                                Text("No tasks")
+                                    .font(.system(size: 10))
+                                    .foregroundColor(settings.selectedTheme.textColor.opacity(0.4))
+                                    .padding(.top, 8)
+                            } else {
+                                ForEach(taskManager.activeTasks) { task in
+                                    DetailedTaskRow(task: task, isActive: task.id == taskManager.activeTaskId)
+                                }
+                            }
+                        }
+                    }
+
+                }
+                .frame(maxHeight: .infinity)
+                .padding(.horizontal, 12)
+                .padding(.top, 12)
+
+                // Divider
+                Rectangle()
+                    .fill(settings.selectedTheme.textColor.opacity(0.1))
+                    .frame(height: 1)
+                    .padding(.horizontal, 12)
+
+                // Daily goal — fixed intrinsic height at the bottom
+                VStack(spacing: 6) {
+                    if goalTracker.hasGoalSet {
+                        let todayMinutes = goalTracker.getTodayMinutes()
+                        let goalMinutes = goalTracker.dailyGoalMinutes
+                        let progress = min(Double(todayMinutes) / Double(goalMinutes), 1.0)
+
+                        HStack {
+                            Text("Daily Goal")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundColor(settings.selectedTheme.textColor.opacity(0.5))
+                                .textCase(.uppercase)
+                            Spacer()
+                            Text("\(Int(progress * 100))%")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(progress >= 1.0 ? Color(hex: "4CAF50") : viewModel.currentAccentColor)
+                        }
+
+                        ZStack(alignment: .leading) {
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(settings.selectedTheme.textColor.opacity(0.15))
+                                .frame(height: 6)
+                            GeometryReader { barGeo in
+                                RoundedRectangle(cornerRadius: 4)
+                                    .fill(progress >= 1.0 ? Color(hex: "4CAF50") : viewModel.currentAccentColor)
+                                    .frame(width: barGeo.size.width * progress, height: 6)
+                            }
+                        }
+                        .frame(height: 6)
+
+                        Text("\(GoalTracker.formatMinutes(todayMinutes)) / \(GoalTracker.formatMinutes(goalMinutes))")
+                            .font(.system(size: 10))
+                            .foregroundColor(settings.selectedTheme.textColor.opacity(0.6))
+                    } else {
+                        Text("No goal set")
+                            .font(.system(size: 10))
+                            .foregroundColor(settings.selectedTheme.textColor.opacity(0.4))
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .onChange(of: viewModel.status) { newStatus in
+            if newStatus == .pulsing {
+                withAnimation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true)) {
+                    pulseAnimation = true
+                }
+            } else {
+                pulseAnimation = false
+            }
+        }
+    }
+
+    private var timerFontWeight: Font.Weight {
+        switch settings.timerFontWeightRaw {
+        case "Thin": return .thin
+        case "Light": return .light
+        case "Regular": return .regular
+        case "Medium": return .medium
+        case "DemiBold": return .semibold
+        case "Bold": return .bold
+        default: return .medium
+        }
+    }
+    
+
+}
+
+/// Compact task row for the detailed view
+struct DetailedTaskRow: View {
+    let task: WorkTask
+    let isActive: Bool
+
+    @ObservedObject var taskManager = TaskManager.shared
+    @ObservedObject var settings = SettingsManager.shared
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Button(action: {
+                taskManager.setActiveTask(id: isActive ? nil : task.id)
+            }) {
+                Image(systemName: isActive ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 12))
+                    .foregroundColor(isActive ? settings.selectedTheme.workAccent : settings.selectedTheme.textColor.opacity(0.4))
+            }
+            .buttonStyle(.plain)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(task.name)
+                    .font(.system(size: 11, weight: isActive ? .semibold : .regular))
+                    .foregroundColor(settings.selectedTheme.textColor)
+                    .lineLimit(1)
+
+                HStack(spacing: 4) {
+                    Text(GoalTracker.formatMinutes(task.minutesWorked))
+                        .font(.system(size: 9))
+                        .foregroundColor(settings.selectedTheme.textColor.opacity(0.6))
+
+                    if let target = task.targetMinutes {
+                        Text("/ \(GoalTracker.formatMinutes(target))")
+                            .font(.system(size: 9))
+                            .foregroundColor(settings.selectedTheme.textColor.opacity(0.4))
+                    }
+                }
+            }
+
+            Spacer()
+
+            if let progress = task.progress {
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(settings.selectedTheme.textColor.opacity(0.1))
+                        .frame(width: 40, height: 4)
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(task.isComplete ? Color.green : settings.selectedTheme.workAccent)
+                        .frame(width: min(40, 40 * progress), height: 4)
+                }
+            }
+            
+            // Archive button
+            Button(action: { taskManager.archiveTask(id: task.id) }) {
+                Image(systemName: "archivebox")
+                    .font(.system(size: 10))
+                    .foregroundColor(settings.selectedTheme.textColor.opacity(0.4))
+            }
+            .buttonStyle(.plain)
+            .help("Archive")
+            
+            // Delete button
+            Button(action: { confirmDelete() }) {
+                Image(systemName: "trash")
+                    .font(.system(size: 10))
+                    .foregroundColor(.red.opacity(0.5))
+            }
+            .buttonStyle(.plain)
+            .help("Delete")
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(isActive ? settings.selectedTheme.workAccent.opacity(0.15) : settings.selectedTheme.textColor.opacity(0.05))
+        )
+    }
+
+    private func confirmDelete() {
+        let alert = NSAlert()
+        alert.messageText = "Delete Task"
+        alert.informativeText = "Are you sure you want to delete \"\(task.name)\"?"
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Delete")
+        alert.addButton(withTitle: "Cancel")
+        
+        if alert.runModal() == .alertFirstButtonReturn {
+            taskManager.deleteTask(id: task.id)
+        }
+    }
+
+}
+
 /// Native right-click handler using NSViewRepresentable
 struct RightClickHandler: NSViewRepresentable {
     let viewModel: PomodoroViewModel
@@ -540,7 +1003,7 @@ class RightClickNSView: NSView {
         guard let viewModel = viewModel, let settings = settings else { return }
         
         settingsMenu = SettingsMenu(viewModel: viewModel, settings: settings)
-        let menu = settingsMenu!.createMenu()
+        guard let menu = settingsMenu?.createMenu() else { return }
         
         // Show menu at mouse location
         NSMenu.popUpContextMenu(menu, with: event, for: self)

@@ -1,0 +1,35 @@
+name: Droplet
+options:
+  bundleIdPrefix: com.droplet
+  deploymentTarget:
+    macOS: "13.0"
+  xcodeVersion: "16.0"
+  generateEmptyDirectories: true
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    MACOSX_DEPLOYMENT_TARGET: "13.0"
+    PRODUCT_NAME: droplet
+    MARKETING_VERSION: "1.2.0"
+    CURRENT_PROJECT_VERSION: "8"
+targets:
+  Droplet:
+    type: application
+    platform: macOS
+    sources:
+      - path: Droplet/Sources
+    resources:
+      - path: Droplet/Assets.xcassets
+      - path: Droplet/Resources/Sounds
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.droplet.timer
+        INFOPLIST_FILE: Droplet/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Droplet/droplet.entitlements
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_IDENTITY: "-"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks"
+        COMBINE_HIDPI_IMAGES: true
+        GENERATE_INFOPLIST_FILE: false

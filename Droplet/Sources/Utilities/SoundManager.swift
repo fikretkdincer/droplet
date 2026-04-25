@@ -56,7 +56,9 @@ class SoundManager: ObservableObject {
     
     /// Directory for custom sounds
     private var customSoundsDirectory: URL {
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        guard let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+            return FileManager.default.temporaryDirectory.appendingPathComponent("droplet/Sounds", isDirectory: true)
+        }
         let soundsDir = appSupport.appendingPathComponent("droplet/Sounds", isDirectory: true)
         try? FileManager.default.createDirectory(at: soundsDir, withIntermediateDirectories: true)
         return soundsDir

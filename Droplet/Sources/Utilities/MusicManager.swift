@@ -65,7 +65,6 @@ class MusicManager: ObservableObject {
     @Published var nowPlaying: NowPlaying = .empty
     @Published var isShuffling: Bool = false
     @Published var repeatMode: RepeatMode = .off
-    
     private var pollTimer: Timer?
     
     private init() {
