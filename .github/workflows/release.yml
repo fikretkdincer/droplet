@@ -79,15 +79,11 @@ jobs:
           
           > **Note**: On first launch, right-click the app and select "Open" to bypass Gatekeeper.
           
-          ### What's New
+          ### What's New in v1.2.0
           - 📝 **Detailed View** - Timer + tasks side by side
-          - 💊 **Mini-Floater Mode** - Tiny distraction-free window
           - 👁️ **20-20-20 Rule** - Eye health full-screen overlay
-          - 📊 **Goal Tracker** - Weekly progress bar charts
-          - 🎶 **Music Controls** - Spotify & Apple Music integration
-          - 🌧️ **Immersive Sounds** - Rain, forest, and more
-          - 🎨 **15 Custom Themes** - Beautiful handcrafted colors
           - 🚀 **Onboarding Flow** - Quick start guide
+          - 🐛 **Bug Fixes & Refinements** - Improved stability and layout
         files: droplet-installer.dmg
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
