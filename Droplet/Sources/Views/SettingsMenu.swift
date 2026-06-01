@@ -59,7 +59,27 @@ class SettingsMenu: NSObject {
             let item = NSMenuItem(title: sound.rawValue, action: #selector(selectSound(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = sound
-            if SoundManager.shared.currentSound == sound && sound != .none && SoundManager.shared.currentCustomSound == nil {
+            if sound == .none &&
+                SoundManager.shared.currentSound == .none &&
+                SoundManager.shared.currentCustomSound == nil &&
+                SoundManager.shared.currentGeneratedNoise == nil {
+                item.state = .on
+            } else if SoundManager.shared.currentSound == sound &&
+                        sound != .none &&
+                        SoundManager.shared.currentCustomSound == nil &&
+                        SoundManager.shared.currentGeneratedNoise == nil {
+                item.state = .on
+            }
+            soundsMenu.addItem(item)
+        }
+
+        soundsMenu.addItem(NSMenuItem.separator())
+
+        for noise in GeneratedNoise.allCases {
+            let item = NSMenuItem(title: noise.rawValue, action: #selector(selectGeneratedNoise(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = noise
+            if SoundManager.shared.currentGeneratedNoise == noise {
                 item.state = .on
             }
             soundsMenu.addItem(item)
@@ -171,11 +191,16 @@ class SettingsMenu: NSObject {
     @objc func selectSound(_ sender: NSMenuItem) {
         if let sound = sender.representedObject as? AmbientSound {
             if sound == .none {
-                SoundManager.shared.stop()
-                SoundManager.shared.currentSound = .none
+                SoundManager.shared.clearSelection()
             } else {
                 SoundManager.shared.play(sound)
             }
+        }
+    }
+
+    @objc func selectGeneratedNoise(_ sender: NSMenuItem) {
+        if let noise = sender.representedObject as? GeneratedNoise {
+            SoundManager.shared.playGenerated(noise)
         }
     }
     

@@ -29,25 +29,6 @@ struct NowPlaying: Equatable {
     }
 }
 
-// MARK: - MediaRemote Private Framework (for commands only)
-
-private let mediaRemoteBundle: CFBundle? = {
-    let path = "/System/Library/PrivateFrameworks/MediaRemote.framework"
-    return CFBundleCreate(kCFAllocatorDefault, NSURL(fileURLWithPath: path))
-}()
-
-// Command types for MRMediaRemoteSendCommand
-private let kMRTogglePlayPause: Int = 2
-private let kMRNextTrack: Int = 4
-private let kMRPreviousTrack: Int = 5
-
-private typealias MRSendCommandType = @convention(c) (Int, AnyObject?) -> Bool
-
-private func getMRSendCommand() -> MRSendCommandType? {
-    guard let bundle = mediaRemoteBundle else { return nil }
-    guard let ptr = CFBundleGetFunctionPointerForName(bundle, "MRMediaRemoteSendCommand" as CFString) else { return nil }
-    return unsafeBitCast(ptr, to: MRSendCommandType.self)
-}
 
 // MARK: - Enums
 
@@ -58,7 +39,7 @@ enum RepeatMode: String {
 }
 
 /// Controls system media playback
-/// Uses MediaRemote for commands, DistributedNotificationCenter for now playing info
+/// Uses AppleScript for commands, DistributedNotificationCenter for now playing info
 class MusicManager: ObservableObject {
     static let shared = MusicManager()
     
@@ -134,11 +115,11 @@ class MusicManager: ObservableObject {
                                 set repeatState to (repeating)
                                 return artistName & "|||" & trackName & "|||" & (playState as string) & "|||" & (shuffleState as string) & "|||" & (repeatState as string)
                             on error
-                                return "|||false|||false|||false"
+                                return "||||||false|||false|||false"
                             end try
                         end tell
                     else
-                        return "|||false|||false|||false"
+                        return "||||||false|||false|||false"
                     end if
                 end tell
                 """
@@ -155,11 +136,11 @@ class MusicManager: ObservableObject {
                                 set repeatState to (song repeat as string)
                                 return artistName & "|||" & trackName & "|||" & (playState as string) & "|||" & (shuffleState as string) & "|||" & repeatState
                             on error
-                                return "|||false|||false|||off"
+                                return "||||||false|||false|||off"
                             end try
                         end tell
                     else
-                        return "|||false|||false|||off"
+                        return "||||||false|||false|||off"
                     end if
                 end tell
                 """
@@ -170,14 +151,32 @@ class MusicManager: ObservableObject {
                let result = appleScript.executeAndReturnError(&error).stringValue {
                 let parts = result.components(separatedBy: "|||")
                 if parts.count >= 5 {
-                    // Update metadata if needed (fallback)
-                    if self?.nowPlaying == .empty {
-                         let newPlaying = NowPlaying(
-                            artist: parts[0],
-                            title: parts[1],
-                            isPlaying: parts[2] == "true"
-                        )
-                        DispatchQueue.main.async {
+                    let newPlaying = NowPlaying(
+                        artist: parts[0],
+                        title: parts[1],
+                        isPlaying: parts[2] == "true"
+                    )
+
+                    // Determine whether to update nowPlaying metadata:
+                    let isSpotify = (appName == "Spotify")
+                    let shouldUpdate: Bool
+                    if isSpotify {
+                        // Only update Spotify state if:
+                        // - Currently empty (initial state)
+                        // - New state is empty (Spotify closed/not running)
+                        // - The actual song (artist or title) changed
+                        let current = self?.nowPlaying ?? .empty
+                        shouldUpdate = (current == .empty) ||
+                                       (newPlaying == .empty) ||
+                                       (current.artist != newPlaying.artist) ||
+                                       (current.title != newPlaying.title)
+                    } else {
+                        // Apple Music has no push notifications, so we always sync when it's different
+                        shouldUpdate = (self?.nowPlaying != newPlaying)
+                    }
+
+                    if shouldUpdate {
+                        DispatchQueue.main.async { [weak self] in
                             if self?.nowPlaying != newPlaying {
                                 self?.nowPlaying = newPlaying
                             }
@@ -235,7 +234,7 @@ class MusicManager: ObservableObject {
         switch app {
         case "Spotify": executeAppleScript("tell application \"Spotify\" to playpause")
         case "Apple Music": executeAppleScript("tell application \"Music\" to playpause")
-        default: if let sendCommand = getMRSendCommand() { _ = sendCommand(kMRTogglePlayPause, nil) }
+        default: break
         }
         
         // Optimistic update
@@ -250,7 +249,7 @@ class MusicManager: ObservableObject {
         switch app {
         case "Spotify": executeAppleScript("tell application \"Spotify\" to next track")
         case "Apple Music": executeAppleScript("tell application \"Music\" to next track")
-        default: if let sendCommand = getMRSendCommand() { _ = sendCommand(kMRNextTrack, nil) }
+        default: break
         }
     }
     
@@ -259,7 +258,7 @@ class MusicManager: ObservableObject {
         switch app {
         case "Spotify": executeAppleScript("tell application \"Spotify\" to previous track")
         case "Apple Music": executeAppleScript("tell application \"Music\" to previous track")
-        default: if let sendCommand = getMRSendCommand() { _ = sendCommand(kMRPreviousTrack, nil) }
+        default: break
         }
     }
     
@@ -268,7 +267,7 @@ class MusicManager: ObservableObject {
         switch app {
         case "Spotify": executeAppleScript("tell application \"Spotify\" to set shuffling to not shuffling")
         case "Apple Music": executeAppleScript("tell application \"Music\" to set shuffle enabled to not shuffle enabled")
-        default: break // MediaRemote shuffle toggle is complex/unsupported via simple command
+        default: break
         }
         
         // Optimistic update
@@ -314,4 +313,3 @@ class MusicManager: ObservableObject {
         }
     }
 }
-

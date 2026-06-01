@@ -42,17 +42,51 @@ struct CustomSound: Codable, Identifiable, Equatable {
     var icon: String { "🎵" }
 }
 
+struct SoundOption: Identifiable, Hashable {
+    let id: String
+    let title: String
+}
+
 /// Manages ambient sound playback with seamless looping
 class SoundManager: ObservableObject {
     static let shared = SoundManager()
     
     @Published var currentSound: AmbientSound = .none
     @Published var currentCustomSound: CustomSound? = nil
+    @Published var currentGeneratedNoise: GeneratedNoise? = nil
     @Published var volume: Float = 0.5
     @Published var isPlaying: Bool = false
     @Published var customSounds: [CustomSound] = []
     
     private var audioPlayer: AVAudioPlayer?
+    private var focusNoiseEngine: FocusNoiseEngine?
+
+    var soundOptions: [SoundOption] {
+        [SoundOption(id: "none", title: "None")]
+        + AmbientSound.allCases
+            .filter { $0 != .none }
+            .map { SoundOption(id: "ambient:\($0.rawValue)", title: $0.rawValue) }
+        + GeneratedNoise.allCases
+            .map { SoundOption(id: "noise:\($0.rawValue)", title: $0.rawValue) }
+        + customSounds
+            .map { SoundOption(id: "custom:\($0.id)", title: $0.name) }
+    }
+
+    var selectedSoundOptionId: String {
+        if let currentGeneratedNoise {
+            return "noise:\(currentGeneratedNoise.rawValue)"
+        }
+
+        if let currentCustomSound {
+            return "custom:\(currentCustomSound.id)"
+        }
+
+        if currentSound != .none {
+            return "ambient:\(currentSound.rawValue)"
+        }
+
+        return "none"
+    }
     
     /// Directory for custom sounds
     private var customSoundsDirectory: URL {
@@ -86,6 +120,13 @@ class SoundManager: ObservableObject {
         if let customSoundId = UserDefaults.standard.string(forKey: "customSoundId"),
            let customSound = customSounds.first(where: { $0.id == customSoundId }) {
             currentCustomSound = customSound
+            currentSound = .none
+        }
+
+        if let generatedNoiseRaw = UserDefaults.standard.string(forKey: "generatedNoise"),
+           let generatedNoise = GeneratedNoise(rawValue: generatedNoiseRaw) {
+            currentGeneratedNoise = generatedNoise
+            currentCustomSound = nil
             currentSound = .none
         }
     }
@@ -179,8 +220,10 @@ class SoundManager: ObservableObject {
         stop()
         currentSound = sound
         currentCustomSound = nil
+        currentGeneratedNoise = nil
         UserDefaults.standard.set(sound.rawValue, forKey: "ambientSound")
         UserDefaults.standard.removeObject(forKey: "customSoundId")
+        UserDefaults.standard.removeObject(forKey: "generatedNoise")
         
         guard let filename = sound.filename else {
             isPlaying = false
@@ -216,11 +259,75 @@ class SoundManager: ObservableObject {
         stop()
         currentSound = .none
         currentCustomSound = sound
+        currentGeneratedNoise = nil
         UserDefaults.standard.set(sound.id, forKey: "customSoundId")
         UserDefaults.standard.removeObject(forKey: "ambientSound")
+        UserDefaults.standard.removeObject(forKey: "generatedNoise")
         
         let url = customSoundsDirectory.appendingPathComponent(sound.filename)
         playURL(url)
+    }
+
+    /// Play a generated static focus-noise preset.
+    func playGenerated(_ noise: GeneratedNoise) {
+        stop()
+        currentSound = .none
+        currentCustomSound = nil
+        currentGeneratedNoise = noise
+        UserDefaults.standard.set(noise.rawValue, forKey: "generatedNoise")
+        UserDefaults.standard.removeObject(forKey: "ambientSound")
+        UserDefaults.standard.removeObject(forKey: "customSoundId")
+
+        do {
+            let engine = FocusNoiseEngine()
+            try engine.start(noise: noise, volume: volume)
+            focusNoiseEngine = engine
+            isPlaying = true
+        } catch {
+            print("Error playing generated noise: \(error.localizedDescription)")
+            focusNoiseEngine = nil
+            isPlaying = false
+        }
+    }
+
+    func selectOption(_ optionId: String) {
+        if optionId == "none" {
+            clearSelection()
+            return
+        }
+
+        if optionId.hasPrefix("ambient:") {
+            let rawValue = String(optionId.dropFirst("ambient:".count))
+            if let sound = AmbientSound(rawValue: rawValue) {
+                play(sound)
+            }
+            return
+        }
+
+        if optionId.hasPrefix("noise:") {
+            let rawValue = String(optionId.dropFirst("noise:".count))
+            if let noise = GeneratedNoise(rawValue: rawValue) {
+                playGenerated(noise)
+            }
+            return
+        }
+
+        if optionId.hasPrefix("custom:") {
+            let id = String(optionId.dropFirst("custom:".count))
+            if let sound = customSounds.first(where: { $0.id == id }) {
+                playCustom(sound)
+            }
+        }
+    }
+
+    func clearSelection() {
+        stop()
+        currentSound = .none
+        currentCustomSound = nil
+        currentGeneratedNoise = nil
+        UserDefaults.standard.removeObject(forKey: "ambientSound")
+        UserDefaults.standard.removeObject(forKey: "customSoundId")
+        UserDefaults.standard.removeObject(forKey: "generatedNoise")
     }
     
     private func playURL(_ url: URL) {
@@ -242,6 +349,8 @@ class SoundManager: ObservableObject {
     func stop() {
         audioPlayer?.stop()
         audioPlayer = nil
+        focusNoiseEngine?.stop()
+        focusNoiseEngine = nil
         isPlaying = false
     }
     
@@ -251,6 +360,8 @@ class SoundManager: ObservableObject {
             stop()
         } else if let custom = currentCustomSound {
             playCustom(custom)
+        } else if let generatedNoise = currentGeneratedNoise {
+            playGenerated(generatedNoise)
         } else if currentSound != .none {
             play(currentSound)
         }
@@ -260,16 +371,17 @@ class SoundManager: ObservableObject {
     func setVolume(_ newVolume: Float) {
         volume = max(0, min(1, newVolume))
         audioPlayer?.volume = volume
+        focusNoiseEngine?.volume = volume
         UserDefaults.standard.set(volume, forKey: "soundVolume")
     }
     
-    /// Increase volume by 10%
+    /// Increase volume by 5%
     func volumeUp() {
-        setVolume(volume + 0.1)
+        setVolume(volume + 0.05)
     }
     
-    /// Decrease volume by 10%
+    /// Decrease volume by 5%
     func volumeDown() {
-        setVolume(volume - 0.1)
+        setVolume(volume - 0.05)
     }
 }

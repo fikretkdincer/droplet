@@ -2,11 +2,24 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <!-- Allow accessing now playing information -->
-    <key>com.apple.security.temporary-exception.mach-lookup.global-name</key>
+    <!-- Enable App Sandboxing for App Store compliance -->
+    <key>com.apple.security.app-sandbox</key>
+    <true/>
+
+    <!-- User-selected files read access (to import custom ambient sounds) -->
+    <key>com.apple.security.files.user-selected.read-only</key>
+    <true/>
+
+    <!-- Send AppleEvents to control third-party players (Spotify and Apple Music) -->
+    <key>com.apple.security.temporary-exception.apple-events</key>
     <array>
-        <string>com.apple.mediaremoted.xpc</string>
-        <string>com.apple.mediaremoted</string>
+        <string>com.spotify.client</string>
+        <string>com.apple.Music</string>
+    </array>
+
+    <key>com.apple.security.application-groups</key>
+    <array>
+        <string>group.com.droplet.timer</string>
     </array>
 </dict>
 </plist>

@@ -29,6 +29,7 @@ class PomodoroViewModel: ObservableObject {
             currentMode = .infinity
         }
         resetToCurrentMode()
+        syncWidgetTimerState(reload: true)
 
         // Observe infinity mode toggle
         settingsObserver = settings.objectWillChange.sink { [weak self] _ in
@@ -71,7 +72,7 @@ class PomodoroViewModel: ObservableObject {
 
     /// Check if currently on a break (short or long)
     var isOnBreak: Bool {
-        currentMode == .shortBreak || currentMode == .longBreak
+        currentMode.isBreak
     }
     
     /// Skip the current break and immediately return to work mode
@@ -81,6 +82,7 @@ class PomodoroViewModel: ObservableObject {
         currentMode = .work
         resetToCurrentMode()
         status = .idle
+        syncWidgetTimerState(reload: true)
         
         // Send motivational notification
         notifications.sendCustomNotification(
@@ -106,16 +108,16 @@ class PomodoroViewModel: ObservableObject {
 
     
     var totalSecondsForCurrentMode: Int {
-        switch currentMode {
-        case .work:
-            return settings.workDuration * 60
-        case .shortBreak:
-            return settings.shortBreakDuration * 60
-        case .longBreak:
-            return settings.longBreakDuration * 60
-        case .infinity:
-            return 0
-        }
+        timerConfiguration.totalSeconds(for: currentMode)
+    }
+
+    private var timerConfiguration: TimerConfiguration {
+        TimerConfiguration(
+            workDurationMinutes: settings.workDuration,
+            shortBreakDurationMinutes: settings.shortBreakDuration,
+            longBreakDurationMinutes: settings.longBreakDuration,
+            workflowsBeforeLongBreak: settings.workflowCount
+        )
     }
     
     // MARK: - Public Actions
@@ -125,6 +127,28 @@ class PomodoroViewModel: ObservableObject {
         switch status {
         case .idle, .paused, .pulsing:
             startTimer()
+        case .running:
+            pauseTimer()
+        }
+    }
+
+    func startFromWidget() {
+        switch status {
+        case .idle, .paused:
+            startTimer()
+        case .pulsing:
+            continueToNextPhase()
+        case .running:
+            break
+        }
+    }
+
+    func toggleFromWidget() {
+        switch status {
+        case .idle, .paused:
+            startTimer()
+        case .pulsing:
+            continueToNextPhase()
         case .running:
             pauseTimer()
         }
@@ -139,6 +163,7 @@ class PomodoroViewModel: ObservableObject {
         resetToCurrentMode()
         status = .idle
         secondsWorkedThisSession = 0
+        syncWidgetTimerState(reload: true)
 
         // Stop ambient sounds on reset (like pausing)
         if settings.pauseSoundsOnTimerPause {
@@ -150,6 +175,7 @@ class PomodoroViewModel: ObservableObject {
     
     private func startTimer() {
         status = .running
+        syncWidgetTimerState(reload: true)
         timer = Timer.publish(every: 1, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in
@@ -157,7 +183,7 @@ class PomodoroViewModel: ObservableObject {
             }
         
         // Resume sounds if they were paused
-        if settings.pauseSoundsOnTimerPause && (currentMode == .work || currentMode == .infinity) {
+        if settings.pauseSoundsOnTimerPause && currentMode.tracksFocusTime {
             if SoundManager.shared.currentSound != .none || SoundManager.shared.currentCustomSound != nil {
                 if !SoundManager.shared.isPlaying {
                     SoundManager.shared.toggle()
@@ -170,6 +196,7 @@ class PomodoroViewModel: ObservableObject {
         status = .paused
         timer?.cancel()
         timer = nil
+        syncWidgetTimerState(reload: true)
         
         // Pause sounds when timer is paused
         if settings.pauseSoundsOnTimerPause && SoundManager.shared.isPlaying {
@@ -202,6 +229,7 @@ class PomodoroViewModel: ObservableObject {
                     NotificationCenter.default.post(name: Notification.Name("TriggerEyeRestOverlay"), object: nil)
                 }
             }
+            syncWidgetTimerState(reload: false)
             return
         }
 
@@ -232,6 +260,8 @@ class PomodoroViewModel: ObservableObject {
         if remainingSeconds == 0 {
             handleSessionComplete()
         }
+
+        syncWidgetTimerState(reload: false)
     }
     
     private func handleSessionComplete() {
@@ -255,6 +285,7 @@ class PomodoroViewModel: ObservableObject {
         } else {
             // Wait for user to click
             status = .pulsing
+            syncWidgetTimerState(reload: true)
         }
     }
     
@@ -277,21 +308,18 @@ class PomodoroViewModel: ObservableObject {
     }
     
     private func switchToNextMode() {
-        switch currentMode {
+        let previousMode = currentMode
+        let nextPhase = timerConfiguration.nextPhase(after: previousMode, completedWorkflows: completedWorkflows)
+        currentMode = nextPhase.mode
+        completedWorkflows = nextPhase.completedWorkflows
+
+        switch previousMode {
         case .work:
-            completedWorkflows += 1
-            if completedWorkflows >= settings.workflowCount {
-                currentMode = .longBreak
-                completedWorkflows = 0
-            } else {
-                currentMode = .shortBreak
-            }
             // Pause ambient sounds during break
             if SoundManager.shared.isPlaying {
                 SoundManager.shared.stop()
             }
         case .shortBreak, .longBreak:
-            currentMode = .work
             // Resume ambient sounds for work session
             if SoundManager.shared.currentSound != .none || SoundManager.shared.currentCustomSound != nil {
                 SoundManager.shared.toggle()
@@ -300,13 +328,14 @@ class PomodoroViewModel: ObservableObject {
             break
         }
         resetToCurrentMode()
+        syncWidgetTimerState(reload: true)
     }
     
     private func resetToCurrentMode() {
         sessionTotalSeconds = totalSecondsForCurrentMode
         
         // Reset eye rest counter on break start
-        if currentMode == .shortBreak || currentMode == .longBreak {
+        if currentMode.isBreak {
             continuousWorkSecondsForEyeRest = 0
         }
         
@@ -334,6 +363,7 @@ class PomodoroViewModel: ObservableObject {
         sendNotification()
         switchToNextMode()
         status = .idle
+        syncWidgetTimerState(reload: true)
     }
 
     // MARK: - Infinity Mode
@@ -346,6 +376,7 @@ class PomodoroViewModel: ObservableObject {
         completedWorkflows = 0
         secondsWorkedThisSession = 0
         status = .idle
+        syncWidgetTimerState(reload: true)
     }
 
     func exitInfinityMode() {
@@ -355,5 +386,21 @@ class PomodoroViewModel: ObservableObject {
         secondsWorkedThisSession = 0
         status = .idle
         resetToCurrentMode()
+        syncWidgetTimerState(reload: true)
+    }
+
+    func syncWidgetTimerState(reload: Bool) {
+        DropletWidgetStore.shared.syncTimer(
+            modeRaw: currentMode.rawValue,
+            statusRaw: widgetStatusRaw,
+            remainingSeconds: currentMode == .infinity ? elapsedSeconds : remainingSeconds,
+            totalSeconds: sessionTotalSeconds,
+            progress: progressRatio,
+            reload: reload
+        )
+    }
+
+    private var widgetStatusRaw: String {
+        status.rawValue
     }
 }

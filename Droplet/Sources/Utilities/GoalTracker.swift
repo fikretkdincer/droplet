@@ -14,7 +14,7 @@ class GoalTracker: ObservableObject {
     private var notifiedMilestones: [String: Set<Int>] = [:]
     
     /// Milestone thresholds (percentages)
-    static let milestones = [25, 50, 75, 100, 125]
+    static let milestones = GoalProgress.defaultMilestones
     
     /// Milestone messages
     static let milestoneMessages: [Int: (title: String, body: String)] = [
@@ -25,28 +25,31 @@ class GoalTracker: ObservableObject {
         125: ("Overachiever!", "We're pushing even harder, huh?!")
     ]
     
-    private let dateFormatter: DateFormatter = {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        return df
-    }()
-    
     var hasGoalSet: Bool {
         dailyGoalMinutes > 0
     }
     
     private init() {
         loadData()
+        syncWidgetStore()
     }
     
     // MARK: - Persistence
     
     private func loadData() {
-        dailyGoalMinutes = UserDefaults.standard.integer(forKey: "dailyGoalMinutes")
-        
-        if let data = UserDefaults.standard.data(forKey: "workHistory"),
-           let history = try? JSONDecoder().decode([String: Int].self, from: data) {
-            workHistory = history
+        let registry = DropletWidgetStore.shared
+        dailyGoalMinutes = registry.dailyGoalMinutes
+        workHistory = registry.workHistory
+
+        // Preserve existing installs that saved goal data before widgets used the shared app-group registry.
+        if dailyGoalMinutes == 0 {
+            dailyGoalMinutes = UserDefaults.standard.integer(forKey: "dailyGoalMinutes")
+        }
+
+        if workHistory.isEmpty,
+           let data = UserDefaults.standard.data(forKey: "workHistory"),
+           let legacyHistory = try? JSONDecoder().decode([String: Int].self, from: data) {
+            workHistory = legacyHistory
         }
         
         if let data = UserDefaults.standard.data(forKey: "notifiedMilestones"),
@@ -68,6 +71,23 @@ class GoalTracker: ObservableObject {
         if let data = try? JSONEncoder().encode(milestonesArray) {
             UserDefaults.standard.set(data, forKey: "notifiedMilestones")
         }
+
+        syncGoalProgressRegistry()
+    }
+
+    private func syncWidgetStore() {
+        DropletWidgetStore.shared.sync(
+            dailyGoalMinutes: dailyGoalMinutes,
+            workHistory: workHistory,
+            selectedThemeRaw: SettingsManager.shared.selectedThemeRaw
+        )
+    }
+
+    private func syncGoalProgressRegistry() {
+        DropletWidgetStore.shared.syncGoalProgress(
+            dailyGoalMinutes: dailyGoalMinutes,
+            workHistory: workHistory
+        )
     }
     
     // MARK: - Goal Management
@@ -82,10 +102,11 @@ class GoalTracker: ObservableObject {
     /// Record a completed work session and check for milestones
     /// Returns any new milestone reached (for notification)
     func recordWorkSession(minutes: Int) -> Int? {
-        let today = dateFormatter.string(from: Date())
+        let today = FocusHistory.dayKey()
         let previousMinutes = workHistory[today] ?? 0
-        let newMinutes = previousMinutes + minutes
-        workHistory[today] = newMinutes
+        var history = FocusHistory(minutesByDay: workHistory)
+        let newMinutes = history.record(minutes: minutes)
+        workHistory = history.minutesByDay
         
         // Check for milestone crossings
         let newMilestone = checkForNewMilestone(date: today, previousMinutes: previousMinutes, newMinutes: newMinutes)
@@ -97,24 +118,24 @@ class GoalTracker: ObservableObject {
     private func checkForNewMilestone(date: String, previousMinutes: Int, newMinutes: Int) -> Int? {
         guard dailyGoalMinutes > 0 else { return nil }
         
-        let previousPercent = (previousMinutes * 100) / dailyGoalMinutes
-        let newPercent = (newMinutes * 100) / dailyGoalMinutes
-        
+        let progress = GoalProgress(dailyGoalMinutes: dailyGoalMinutes, minutesWorked: newMinutes)
+        let previousPercent = GoalProgress(dailyGoalMinutes: dailyGoalMinutes, minutesWorked: previousMinutes).percent
+        let newPercent = progress.percent
+
         print("[GoalTracker] Previous: \(previousMinutes)m (\(previousPercent)%), New: \(newMinutes)m (\(newPercent)%), Goal: \(dailyGoalMinutes)m")
-        
+
         var todayMilestones = notifiedMilestones[date] ?? []
-        var highestNewMilestone: Int? = nil
-        
-        // Find the HIGHEST new milestone crossed (not first)
-        for milestone in Self.milestones {
-            if previousPercent < milestone && newPercent >= milestone && !todayMilestones.contains(milestone) {
-                print("[GoalTracker] Milestone \(milestone)% crossed!")
+        let highestNewMilestone = progress.highestCrossedMilestone(
+            previousMinutes: previousMinutes,
+            milestones: Self.milestones,
+            alreadyNotified: todayMilestones
+        )
+
+        if let highestNewMilestone {
+            for milestone in Self.milestones where previousPercent < milestone && newPercent >= milestone {
                 todayMilestones.insert(milestone)
-                highestNewMilestone = milestone
             }
-        }
-        
-        if highestNewMilestone != nil {
+            print("[GoalTracker] Milestone \(highestNewMilestone)% crossed!")
             notifiedMilestones[date] = todayMilestones
         }
         
@@ -126,31 +147,15 @@ class GoalTracker: ObservableObject {
     /// Get work data for a week (weekOffset: 0 = current, -1 = last week, etc.)
     func getWeekData(weekOffset: Int = 0) -> [(date: Date, minutes: Int, dayName: String)] {
         let calendar = Calendar.current
-        let today = Date()
-        
-        // Get the start of the current week (Monday)
-        var components = calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: today)
-        components.weekday = 2 // Monday
-        guard var weekStart = calendar.date(from: components) else { return [] }
-        
-        // Apply week offset
-        if weekOffset != 0 {
-            weekStart = calendar.date(byAdding: .weekOfYear, value: weekOffset, to: weekStart) ?? weekStart
-        }
-        
-        var result: [(Date, Int, String)] = []
+        let targetDate = calendar.date(byAdding: .weekOfYear, value: weekOffset, to: Date()) ?? Date()
+        let records = FocusHistory(minutesByDay: workHistory)
+            .weekRecords(containing: targetDate, weekStartWeekday: 2, calendar: calendar)
         let dayFormatter = DateFormatter()
         dayFormatter.dateFormat = "EEE" // Mon, Tue, etc.
         
-        for dayOffset in 0..<7 {
-            guard let date = calendar.date(byAdding: .day, value: dayOffset, to: weekStart) else { continue }
-            let dateString = dateFormatter.string(from: date)
-            let minutes = workHistory[dateString] ?? 0
-            let dayName = dayFormatter.string(from: date)
-            result.append((date, minutes, dayName))
+        return records.map { record in
+            (record.date, record.minutes, dayFormatter.string(from: record.date))
         }
-        
-        return result
     }
     
     /// Get the date range string for a week
@@ -167,16 +172,12 @@ class GoalTracker: ObservableObject {
     
     /// Get today's progress percentage
     func getTodayProgress() -> Double {
-        guard dailyGoalMinutes > 0 else { return 0 }
-        let today = dateFormatter.string(from: Date())
-        let minutes = workHistory[today] ?? 0
-        return Double(minutes) / Double(dailyGoalMinutes)
+        GoalProgress(dailyGoalMinutes: dailyGoalMinutes, minutesWorked: getTodayMinutes()).ratio
     }
     
     /// Get minutes worked today
     func getTodayMinutes() -> Int {
-        let today = dateFormatter.string(from: Date())
-        return workHistory[today] ?? 0
+        FocusHistory(minutesByDay: workHistory).minutes()
     }
     
     /// Format minutes as hours string (e.g., "2h 30m")

@@ -8,11 +8,16 @@
 
 # Local notes
 TODO.md
+docs/
+
+# Private mobile app
+DropletiOS/
 
 # Build artifacts
 droplet.app/
 droplet_rw.dmg
 droplet-installer.dmg
+build/
 
 # Xcode generated project (regenerate with `xcodegen`)
 *.xcodeproj/

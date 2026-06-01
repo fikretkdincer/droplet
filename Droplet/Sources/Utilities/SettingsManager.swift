@@ -73,7 +73,10 @@ class SettingsManager: ObservableObject {
 
     var selectedTheme: Theme {
         get { Theme(rawValue: selectedThemeRaw) ?? .dark }
-        set { selectedThemeRaw = newValue.rawValue }
+        set {
+            selectedThemeRaw = newValue.rawValue
+            DropletWidgetStore.shared.syncTheme(rawValue: newValue.rawValue)
+        }
     }
     
     // Minimum sizes for in-app views

@@ -10,25 +10,55 @@ settings:
     MACOSX_DEPLOYMENT_TARGET: "13.0"
     PRODUCT_NAME: droplet
     MARKETING_VERSION: "1.2.0"
-    CURRENT_PROJECT_VERSION: "8"
+    CURRENT_PROJECT_VERSION: "9"
+packages:
+  DropletCore:
+    path: DropletCore
 targets:
   Droplet:
     type: application
     platform: macOS
     sources:
       - path: Droplet/Sources
+      - path: DropletWidget/Shared
       - path: Droplet/Assets.xcassets
       - path: Droplet/Resources/AppIcon.icns
       - path: Droplet/Resources/Sounds
         type: folder
+    dependencies:
+      - target: DropletWidget
+      - package: DropletCore
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.droplet.timer
         INFOPLIST_FILE: Droplet/Info.plist
         CODE_SIGN_ENTITLEMENTS: Droplet/droplet.entitlements
-        CODE_SIGN_STYLE: Manual
-        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: XG34Q95DKB
+        REGISTER_APP_GROUPS: YES
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks"
         COMBINE_HIDPI_IMAGES: true
+        GENERATE_INFOPLIST_FILE: false
+
+  DropletWidget:
+    type: app-extension
+    platform: macOS
+    sources:
+      - path: DropletWidget/StreakGardenWidget.swift
+      - path: DropletWidget/TimerBucketWidget.swift
+      - path: DropletWidget/StreakGardenMonthNavigation.swift
+      - path: DropletWidget/StreakGardenScale.swift
+      - path: DropletWidget/Shared
+      - path: Droplet/Sources/Models/Theme.swift
+    settings:
+      base:
+        PRODUCT_NAME: DropletWidget
+        PRODUCT_BUNDLE_IDENTIFIER: com.droplet.timer.widget
+        INFOPLIST_FILE: DropletWidget/Info.plist
+        CODE_SIGN_ENTITLEMENTS: DropletWidget/DropletWidget.entitlements
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: XG34Q95DKB
+        REGISTER_APP_GROUPS: YES
+        MACOSX_DEPLOYMENT_TARGET: "14.0"
         GENERATE_INFOPLIST_FILE: false

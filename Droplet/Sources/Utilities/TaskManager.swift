@@ -1,36 +1,5 @@
 import Foundation
 
-/// A work task that users can track time against
-struct WorkTask: Identifiable, Codable, Equatable {
-    let id: UUID
-    var name: String
-    var targetMinutes: Int?  // nil = unlimited (no target)
-    var minutesWorked: Int
-    var isArchived: Bool
-    let createdAt: Date
-    
-    init(id: UUID = UUID(), name: String, targetMinutes: Int? = nil, minutesWorked: Int = 0, isArchived: Bool = false, createdAt: Date = Date()) {
-        self.id = id
-        self.name = name
-        self.targetMinutes = targetMinutes
-        self.minutesWorked = minutesWorked
-        self.isArchived = isArchived
-        self.createdAt = createdAt
-    }
-    
-    /// Progress ratio (0.0 to 1.0+) for timed tasks, nil for unlimited
-    var progress: Double? {
-        guard let target = targetMinutes, target > 0 else { return nil }
-        return Double(minutesWorked) / Double(target)
-    }
-    
-    /// Whether the task has reached its target (only for timed tasks)
-    var isComplete: Bool {
-        guard let target = targetMinutes else { return false }
-        return minutesWorked >= target
-    }
-}
-
 /// Manages work tasks with persistence
 class TaskManager: ObservableObject {
     static let shared = TaskManager()

@@ -1,26 +1,14 @@
 import Foundation
+import DropletCore
 
-/// Timer mode representing the current phase
-enum TimerMode: String, CaseIterable {
-    case work = "Work"
-    case shortBreak = "Break"
-    case longBreak = "Long Break"
-    case infinity = "Infinity"
-
-    var icon: String {
-        switch self {
-        case .work: return "💧"
-        case .shortBreak: return "🌿"
-        case .longBreak: return "🌊"
-        case .infinity: return "∞"
-        }
-    }
-}
-
-/// Timer running status
-enum TimerStatus {
-    case idle
-    case running
-    case paused
-    case pulsing // Waiting for user to start next phase
-}
+typealias DailyFocusRecord = DropletCore.DailyFocusRecord
+typealias FocusHistory = DropletCore.FocusHistory
+typealias FocusSession = DropletCore.FocusSession
+typealias FocusSessionSource = DropletCore.FocusSessionSource
+typealias GeneratedNoise = DropletCore.GeneratedNoise
+typealias GoalProgress = DropletCore.GoalProgress
+typealias TimerConfiguration = DropletCore.TimerConfiguration
+typealias TimerMode = DropletCore.TimerMode
+typealias TimerPhase = DropletCore.TimerPhase
+typealias TimerStatus = DropletCore.TimerStatus
+typealias WorkTask = DropletCore.WorkTask

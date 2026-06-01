@@ -20,14 +20,8 @@ struct DropletApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
     var body: some Scene {
-        WindowGroup {
+        Settings {
             EmptyView()
-                .frame(width: 0, height: 0)
-                .hidden()
-                .onAppear {
-                    NSWindow.allowsAutomaticWindowTabbing = false
-                    NSApplication.shared.windows.first?.close()
-                }
         }
     }
 }
@@ -48,8 +42,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     let settings = SettingsManager.shared
     
     func applicationDidFinishLaunching(_ notification: Notification) {
+        NSWindow.allowsAutomaticWindowTabbing = false
+
         // Initialize notification manager early to set delegate
         _ = NotificationManager.shared
+        _ = GoalTracker.shared
+        DropletWidgetStore.shared.syncTheme(rawValue: settings.selectedThemeRaw)
         
         // Hide dock icon
         NSApp.setActivationPolicy(.accessory)
@@ -58,6 +56,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         setupMainWindow()
         setupKeyboardMonitor()
         setupObservers()
+        consumeWidgetTimerRequests()
         setupOnboarding()
     }
     
@@ -87,6 +86,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.updateMenuBarTimer()
+                self?.viewModel.syncWidgetTimerState(reload: false)
             }
             .store(in: &cancellables)
 
@@ -94,13 +94,35 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.updateMenuBarTimer()
+                self?.viewModel.syncWidgetTimerState(reload: false)
+            }
+            .store(in: &cancellables)
+
+        viewModel.$currentMode
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.viewModel.syncWidgetTimerState(reload: true)
+            }
+            .store(in: &cancellables)
+
+        viewModel.$status
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.viewModel.syncWidgetTimerState(reload: true)
+            }
+            .store(in: &cancellables)
+
+        Timer.publish(every: 0.5, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] _ in
+                self?.consumeWidgetTimerRequests()
             }
             .store(in: &cancellables)
 
         // Observe settings changes for window resizing and toggles
         NotificationCenter.default.addObserver(
             forName: UserDefaults.didChangeNotification,
-            object: nil,
+            object: UserDefaults.standard,
             queue: .main
         ) { [weak self] _ in
             self?.handleSettingsChange()
@@ -162,6 +184,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             updateWindowForDetailedView(settings.detailedView)
         }
     }
+
+    private func consumeWidgetTimerRequests() {
+        let store = DropletWidgetStore.shared
+        let requestId = store.timerActionRequestId
+        guard requestId > 0, requestId > store.consumedTimerActionRequestId else { return }
+
+        store.markTimerStartRequestConsumed(requestId)
+        guard Date().timeIntervalSince1970 - requestId < 10 else { return }
+        viewModel.toggleFromWidget()
+        viewModel.syncWidgetTimerState(reload: true)
+    }
     
     // MARK: - Main Window
     
@@ -197,10 +230,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Position window in center of screen on first launch
         window?.center()
         
-        window?.makeKeyAndOrderFront(nil)
+        if !hasPendingRecentWidgetTimerRequest {
+            window?.makeKeyAndOrderFront(nil)
+        }
         
         // Set static reference for view navigation
         SettingsManager.mainWindow = window
+    }
+
+    private var hasPendingRecentWidgetTimerRequest: Bool {
+        let store = DropletWidgetStore.shared
+        let requestId = store.timerActionRequestId
+        guard requestId > 0, requestId > store.consumedTimerActionRequestId else { return false }
+        return Date().timeIntervalSince1970 - requestId < 10
     }
     
     /// Hides all three traffic-light buttons. Must be called after any styleMask mutation

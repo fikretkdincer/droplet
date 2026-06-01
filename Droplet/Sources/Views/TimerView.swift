@@ -419,24 +419,29 @@ struct InAppWeeklyProgressView: View {
                                           progress >= 1.0 ? Color(hex: "4CAF50") :
                                           settings.selectedTheme.workAccent
                     let isHovered = hoveredDay == day.date
+                    let barHeight = max(4, min(CGFloat(progress) * 60, 80))
 
                     VStack(spacing: 2) {
+                        Spacer(minLength: 0)
+
                         RoundedRectangle(cornerRadius: 3)
                             .fill(barColor)
-                            .frame(width: 24, height: max(4, min(CGFloat(progress) * 60, 80)))
+                            .frame(width: 24, height: barHeight)
                             .shadow(color: progress >= 1.25 ? barColor.opacity(0.6) : .clear, radius: progress >= 1.25 ? 4 : 0)
                             .opacity(isHovered ? 0.7 : 1.0)
 
                         Text(day.dayName.prefix(1))
                             .font(.system(size: 8))
                             .foregroundColor(settings.selectedTheme.textColor.opacity(0.5))
+                            .frame(height: 10)
                     }
+                    .frame(width: 24, height: 90, alignment: .bottom)
                     .onHover { hovering in
                         hoveredDay = hovering ? day.date : nil
                     }
                 }
             }
-            .frame(height: 90)
+            .frame(height: 90, alignment: .bottom)
             .padding(.horizontal, 8)
 
             // Hovered day info or today's summary

@@ -4,6 +4,7 @@ import ServiceManagement
 /// Dedicated Settings view with organized sections
 struct SettingsView: View {
     @ObservedObject var settings = SettingsManager.shared
+    @ObservedObject var soundManager = SoundManager.shared
     
     @State private var fontSizeText: String = ""
     @State private var newDurationText: String = ""
@@ -277,6 +278,22 @@ struct SettingsView: View {
                     
                     // Sounds Section
                     settingsSection(title: "Sounds") {
+                        settingRow(label: "Sound") {
+                            Picker("", selection: Binding(
+                                get: { soundManager.selectedSoundOptionId },
+                                set: { soundManager.selectOption($0) }
+                            )) {
+                                ForEach(soundManager.soundOptions) { option in
+                                    Text(option.title).tag(option.id)
+                                }
+                            }
+                            .labelsHidden()
+                            .frame(width: 130)
+                            .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                            .cornerRadius(6)
+                            .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.gray.opacity(0.2), lineWidth: 1))
+                        }
+
                         toggleRow(label: "Pause Sound on Timer Pause", isOn: $settings.pauseSoundsOnTimerPause)
                     }
                     
