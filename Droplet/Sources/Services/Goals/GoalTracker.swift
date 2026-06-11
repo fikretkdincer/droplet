@@ -37,22 +37,23 @@ class GoalTracker: ObservableObject {
     // MARK: - Persistence
 
     private func loadData() {
+        let defaults = UserDefaults.standard
         let registry = DropletWidgetStore.shared
-        dailyGoalMinutes = registry.dailyGoalMinutes
-        workHistory = registry.workHistory
 
-        // Preserve existing installs that saved goal data before widgets used the shared app-group registry.
-        if dailyGoalMinutes == 0 {
-            dailyGoalMinutes = UserDefaults.standard.integer(forKey: "dailyGoalMinutes")
+        if defaults.object(forKey: "dailyGoalMinutes") != nil {
+            dailyGoalMinutes = defaults.integer(forKey: "dailyGoalMinutes")
+        } else {
+            dailyGoalMinutes = registry.dailyGoalMinutes
         }
 
-        if workHistory.isEmpty,
-           let data = UserDefaults.standard.data(forKey: "workHistory"),
-           let legacyHistory = try? JSONDecoder().decode([String: Int].self, from: data) {
-            workHistory = legacyHistory
+        if let data = defaults.data(forKey: "workHistory"),
+           let savedHistory = try? JSONDecoder().decode([String: Int].self, from: data) {
+            workHistory = savedHistory
+        } else {
+            workHistory = registry.workHistory
         }
 
-        if let data = UserDefaults.standard.data(forKey: "notifiedMilestones"),
+        if let data = defaults.data(forKey: "notifiedMilestones"),
            let milestones = try? JSONDecoder().decode([String: [Int]].self, from: data) {
             // Convert [Int] to Set<Int>
             notifiedMilestones = milestones.mapValues { Set($0) }

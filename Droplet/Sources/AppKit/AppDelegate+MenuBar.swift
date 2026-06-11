@@ -49,6 +49,13 @@ extension AppDelegate {
         raiseWindowFromMenuBar(window)
     }
 
+    func showWindowFromExternalActivation() {
+        guard let window else { return }
+
+        positionWindowUnderMenuBar()
+        raiseWindowFromMenuBar(window)
+    }
+
     private func shouldHideWindowOnMenuBarClick(_ window: NSWindow) -> Bool {
         window.isVisible && NSApp.isActive && (window.isKeyWindow || window.isMainWindow)
     }

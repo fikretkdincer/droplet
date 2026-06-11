@@ -115,6 +115,7 @@ extension AppDelegate {
         guard Date().timeIntervalSince1970 - requestId < 10 else { return }
         viewModel.toggleFromWidget()
         viewModel.syncWidgetTimerState(reload: true)
+        showWindowFromExternalActivation()
     }
 
     var hasPendingRecentWidgetTimerRequest: Bool {

@@ -3,8 +3,19 @@ import Foundation
 
 extension AppDelegate {
     func application(_ application: NSApplication, open urls: [URL]) {
-        for url in urls where DropletWidgetDeepLink.isTimerToggle(url) {
-            handleTimerWidgetToggle()
+        var shouldShowWindow = false
+
+        for url in urls {
+            if DropletWidgetDeepLink.isTimerToggle(url) {
+                handleTimerWidgetToggle()
+                shouldShowWindow = true
+            } else if DropletWidgetDeepLink.isOpen(url) {
+                shouldShowWindow = true
+            }
+        }
+
+        if shouldShowWindow {
+            showWindowFromExternalActivation()
         }
     }
 

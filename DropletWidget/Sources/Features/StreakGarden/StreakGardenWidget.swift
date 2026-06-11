@@ -7,6 +7,7 @@ struct DropletStreakGardenWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: StreakGardenProvider()) { entry in
             StreakGardenWidgetView(entry: entry)
+                .widgetURL(DropletWidgetDeepLink.openURL)
                 .containerBackground(for: .widget) {
                     StreakGardenWidgetBackground(
                         theme: Theme(rawValue: entry.themeRawValue) ?? .dark,

@@ -19,15 +19,61 @@ jobs:
       id: version
       run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
-
-
     - name: Install xcodegen
       run: brew install xcodegen
+
+    - name: Validate signing secrets
+      env:
+        APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        MACOS_CERTIFICATE_P12_BASE64: ${{ secrets.MACOS_CERTIFICATE_P12_BASE64 }}
+        MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+        MACOS_CODE_SIGN_IDENTITY: ${{ secrets.MACOS_CODE_SIGN_IDENTITY }}
+        MACOS_APP_PROVISION_PROFILE_BASE64: ${{ secrets.MACOS_APP_PROVISION_PROFILE_BASE64 }}
+        MACOS_WIDGET_PROVISION_PROFILE_BASE64: ${{ secrets.MACOS_WIDGET_PROVISION_PROFILE_BASE64 }}
+      run: |
+        set -e
+        test -n "$APPLE_TEAM_ID"
+        test -n "$MACOS_CERTIFICATE_P12_BASE64"
+        test -n "$MACOS_CERTIFICATE_PASSWORD"
+        test -n "$MACOS_CODE_SIGN_IDENTITY"
+        test -n "$MACOS_APP_PROVISION_PROFILE_BASE64"
+        test -n "$MACOS_WIDGET_PROVISION_PROFILE_BASE64"
+
+    - name: Prepare signing assets
+      env:
+        KEYCHAIN_PASSWORD: ${{ secrets.MACOS_KEYCHAIN_PASSWORD }}
+        MACOS_CERTIFICATE_P12_BASE64: ${{ secrets.MACOS_CERTIFICATE_P12_BASE64 }}
+        MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+        MACOS_APP_PROVISION_PROFILE_BASE64: ${{ secrets.MACOS_APP_PROVISION_PROFILE_BASE64 }}
+        MACOS_WIDGET_PROVISION_PROFILE_BASE64: ${{ secrets.MACOS_WIDGET_PROVISION_PROFILE_BASE64 }}
+      run: |
+        set -e
+        KEYCHAIN_PASSWORD="${KEYCHAIN_PASSWORD:-temporary-release-keychain-password}"
+        KEYCHAIN_PATH="$RUNNER_TEMP/droplet-release.keychain-db"
+
+        echo "$MACOS_CERTIFICATE_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/release-certificate.p12"
+        security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+        security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+        security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+        security import "$RUNNER_TEMP/release-certificate.p12" -P "$MACOS_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+        security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | sed s/\"//g)
+        security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+        mkdir -p "$RUNNER_TEMP/profiles"
+        echo "$MACOS_APP_PROVISION_PROFILE_BASE64" | base64 --decode > "$RUNNER_TEMP/profiles/droplet-app.provisionprofile"
+        echo "$MACOS_WIDGET_PROVISION_PROFILE_BASE64" | base64 --decode > "$RUNNER_TEMP/profiles/droplet-widget.provisionprofile"
+
+        security cms -D -i "$RUNNER_TEMP/profiles/droplet-app.provisionprofile" > "$RUNNER_TEMP/profiles/droplet-app-profile.plist"
+        security cms -D -i "$RUNNER_TEMP/profiles/droplet-widget.provisionprofile" > "$RUNNER_TEMP/profiles/droplet-widget-profile.plist"
+        /usr/libexec/PlistBuddy -x -c 'Print :Entitlements' "$RUNNER_TEMP/profiles/droplet-app-profile.plist" > "$RUNNER_TEMP/profiles/droplet-app-entitlements.plist"
+        /usr/libexec/PlistBuddy -x -c 'Print :Entitlements' "$RUNNER_TEMP/profiles/droplet-widget-profile.plist" > "$RUNNER_TEMP/profiles/droplet-widget-entitlements.plist"
 
     - name: Generate Xcode Project
       run: xcodegen
 
     - name: Build app
+      env:
+        MACOS_CODE_SIGN_IDENTITY: ${{ secrets.MACOS_CODE_SIGN_IDENTITY }}
       run: |
         set -e
         # Build using xcodebuild without code signing
@@ -39,13 +85,16 @@ jobs:
         # Verify the macOS widget extension is bundled before packaging
         test -d "droplet.app/Contents/PlugIns/DropletWidget.appex"
 
-        # Sign the widget and app ad-hoc to avoid "damaged app" errors.
-        # Preserve entitlements so WidgetKit can discover the bundled extension.
+        # Embed provisioning profiles and sign with a real Developer ID identity.
+        # App Groups are required for widgets to share theme, timer, and history data.
+        cp "$RUNNER_TEMP/profiles/droplet-app.provisionprofile" "droplet.app/Contents/embedded.provisionprofile"
+        cp "$RUNNER_TEMP/profiles/droplet-widget.provisionprofile" "droplet.app/Contents/PlugIns/DropletWidget.appex/Contents/embedded.provisionprofile"
+
         echo "Signing bundled widget extension..."
-        codesign --force --sign - --entitlements DropletWidget/DropletWidget.entitlements "droplet.app/Contents/PlugIns/DropletWidget.appex"
+        codesign --force --sign "$MACOS_CODE_SIGN_IDENTITY" --timestamp --options runtime --entitlements "$RUNNER_TEMP/profiles/droplet-widget-entitlements.plist" "droplet.app/Contents/PlugIns/DropletWidget.appex"
 
         echo "Signing app bundle..."
-        codesign --force --sign - --entitlements Droplet/droplet.entitlements "droplet.app"
+        codesign --force --sign "$MACOS_CODE_SIGN_IDENTITY" --timestamp --options runtime --entitlements "$RUNNER_TEMP/profiles/droplet-app-entitlements.plist" "droplet.app"
         codesign --verify --deep --strict --verbose=2 "droplet.app"
         codesign -d --entitlements :- "droplet.app/Contents/PlugIns/DropletWidget.appex"
         codesign -d --entitlements :- "droplet.app"
@@ -89,7 +138,7 @@ jobs:
           2. Open the DMG and drag droplet to Applications
           3. Launch from Applications or Spotlight
 
-          > **Note**: This release is ad-hoc signed and not notarized. On first launch, right-click the app and select "Open", or use System Settings > Privacy & Security > Open Anyway.
+          > **Note**: This release is Developer ID signed. If macOS blocks first launch because notarization is not yet enabled, right-click the app and select "Open", or use System Settings > Privacy & Security > Open Anyway.
 
           ### What's New
           - **macOS Widgets** - Added Today, Streak Garden, and Timer Bucket widgets bundled with the app.

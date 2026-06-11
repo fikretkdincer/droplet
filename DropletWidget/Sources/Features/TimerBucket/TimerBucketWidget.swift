@@ -20,7 +20,7 @@ struct TimerBucketWidgetView: View {
         .frame(width: 116, height: 132)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .contentShape(Rectangle())
-        .widgetURL(DropletWidgetDeepLink.timerToggleURL)
+        .widgetURL(DropletWidgetDeepLink.openURL)
     }
 
     private var fillColor: Color {

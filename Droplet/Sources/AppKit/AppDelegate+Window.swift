@@ -27,9 +27,7 @@ extension AppDelegate {
 
         window?.center()
 
-        if !hasPendingRecentWidgetTimerRequest {
-            window?.makeKeyAndOrderFront(nil)
-        }
+        window?.makeKeyAndOrderFront(nil)
 
         SettingsManager.mainWindow = window
     }
