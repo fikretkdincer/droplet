@@ -10,45 +10,52 @@ jobs:
     runs-on: macos-15
     permissions:
       contents: write
-      
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-    
+
     - name: Get version from tag
       id: version
       run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-    
 
-    
+
+
     - name: Install xcodegen
       run: brew install xcodegen
-      
+
     - name: Generate Xcode Project
       run: xcodegen
-    
+
     - name: Build app
       run: |
         set -e
         # Build using xcodebuild without code signing
         xcodebuild -project Droplet.xcodeproj -scheme Droplet -configuration Release CODE_SIGNING_ALLOWED=NO -derivedDataPath .build build
-        
+
         # Copy the built app to the current directory
         cp -R .build/Build/Products/Release/droplet.app ./droplet.app
-        
-        # Sign the app (ad-hoc) to avoid "damaged app" errors
-        echo "🔐 Signing app..."
+
+        # Verify the macOS widget extension is bundled before packaging
+        test -d "droplet.app/Contents/PlugIns/DropletWidget.appex"
+
+        # Sign the widget and app ad-hoc to avoid "damaged app" errors
+        echo "Signing bundled widget extension..."
+        codesign --force --sign - "droplet.app/Contents/PlugIns/DropletWidget.appex"
+
+        echo "Signing app bundle..."
         codesign --force --deep --sign - "droplet.app"
-        
-        echo "✅ App bundle created: droplet.app"
-        
+        codesign --verify --deep --strict --verbose=2 "droplet.app"
+
+        echo "App bundle created and verified: droplet.app"
+
     - name: Create DMG
       run: |
         set -e
-        
+
         # Install create-dmg utility
         brew install create-dmg
-        
+
         # Create DMG using create-dmg for a prettier layout
         echo "Creating DMG..."
         create-dmg \
@@ -62,30 +69,34 @@ jobs:
           --app-drop-link 425 120 \
           "droplet-installer.dmg" \
           "droplet.app"
-        
+
         # Verify DMG was created
         ls -lh droplet-installer.dmg
-        echo "✅ DMG created successfully"
-    
+        echo "DMG created successfully"
+
     - name: Create Release
       uses: softprops/action-gh-release@v2
       with:
         name: droplet v${{ steps.version.outputs.VERSION }}
         body: |
           ## droplet v${{ steps.version.outputs.VERSION }}
-          
+
           ### Installation
           1. Download `droplet-installer.dmg`
           2. Open the DMG and drag droplet to Applications
           3. Launch from Applications or Spotlight
-          
-          > **Note**: On first launch, right-click the app and select "Open" to bypass Gatekeeper.
-          
+
+          > **Note**: This release is ad-hoc signed and not notarized. On first launch, right-click the app and select "Open", or use System Settings > Privacy & Security > Open Anyway.
+
           ### What's New
-          - 📝 **Detailed View** - Timer + tasks side by side
-          - 👁️ **20-20-20 Rule** - Eye health full-screen overlay
-          - 🚀 **Onboarding Flow** - Quick start guide
-          - 🐛 **Bug Fixes** - Fixed window lifecycle and background bugs
+          - **macOS Widgets** - Added Today, Streak Garden, and Timer Bucket widgets bundled with the app.
+          - **Onboarding and Settings** - Added a fuller first-run configuration flow and refreshed native settings controls.
+          - **Focus Sounds** - Added generated focus noise, bundled ambient sounds, custom imports, and a dedicated sound screen.
+          - **Menu Bar Polish** - Improved menu-bar window behavior, fullscreen handling, detailed-view transitions, and widget-aligned visuals.
+          - **Shared Core Cleanup** - Reorganized the app, widget, and DropletCore architecture for cleaner reuse and future platform work.
+          - **Stability Fixes** - Kept Live Activities parked, improved widget refresh behavior, and fixed several app/window edge cases.
+
+          Widgets require macOS 14 or later.
         files: droplet-installer.dmg
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -27,21 +27,23 @@ A beautiful, feature-rich Pomodoro timer and focus tool for macOS. Built purely 
 - **Detailed View & Task Management**: View your timer and tasks side-by-side. Create tasks, assign sessions, and track your history.
 - **Mini-Floater Mode**: A compact, pill-shaped window that floats above your workspace for minimal distraction.
 - **Infinity Mode**: Enter a flow state and work without a time limit.
+- **Guided Setup**: Configure your rhythm, daily goal, automation, appearance, sounds, and widgets from the first-run onboarding flow.
 - **20-20-20 Rule (Eye Health)**: Automatically blurs your screens every 20 minutes with a gentle reminder to rest your eyes.
 - **Goal Tracker**: Set daily goals and track your progress with in-app weekly bar charts.
 - **Fullscreen Focus Mode**: Block out all distractions with a completely borderless fullscreen timer.
 
 ### Customization & Audio
 - **15 Beautiful Themes**: Choose from carefully curated color palettes (Dark, Light, Noir, Velvet, Plum, Navy, Teal, Emerald, etc.) to match your setup.
-- **Immersive Sounds**: Built-in high-quality ambient sounds (Rain, Forest, Train, Library) with seamless looping, plus the ability to import custom MP3s.
+- **Focus Sounds**: Generated white, brown, pink, green, blue, and violet noise, built-in ambient sounds, custom imports, and live volume control from the dedicated sound screen.
 - **Music Controls**: Full integration with Spotify and Apple Music directly from the timer view. Auto-pauses sounds when the timer is paused.
-- **Granular Settings**: Customize work/break durations, add your own workflow intervals, and tweak typography sizes and weights.
+- **Granular Settings**: Customize work/break durations, add your own workflow intervals, choose theme swatches, and tune gradient/glow, typography, sound, and window behavior.
 
 ### Native macOS Integration
 - **Menu Bar Foundation**: Lives in your menu bar without cluttering your dock. Includes a live countdown option directly in the status bar.
 - **Interactive UI**: Double-click to reset, click to pause/play, and right-click the menu icon for quick actions.
 - **Always on Top**: Keeps the timer visible above all other windows.
 - **Launch at Login**: Start automatically with macOS.
+- **macOS Widgets**: Add Today, Streak Garden, and Timer Bucket widgets from Edit Widgets. Widgets are bundled with Droplet and require macOS 14 or later.
 
 ## Installation
 
@@ -90,9 +92,6 @@ xcodegen
 
 # Build the project
 xcodebuild -project Droplet.xcodeproj -scheme Droplet -configuration Release build
-
-# Or use the provided script to build and create a DMG
-./create-dmg.sh
 ```
 
 ## Usage Shortcuts

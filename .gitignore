@@ -3,8 +3,16 @@
 
 # Editor/Tool metadata
 .claude/
+.codex/
+.agents/
 .vscode/
 .idea/
+.qoder/
+
+# Environment/secrets
+.env
+.env.*
+!.env.example
 
 # Local notes
 TODO.md
@@ -12,12 +20,28 @@ docs/
 
 # Private mobile app
 DropletiOS/
+DropletLiveActivityExtension/
+
+# Local development scripts
+script/
 
 # Build artifacts
 droplet.app/
+*.app/
 droplet_rw.dmg
 droplet-installer.dmg
+*.dmg
+*.pkg
+*.ipa
 build/
+.build-release/
+*.xcarchive/
+*.xcresult/
+*.dSYM/
+*.dSYM.zip
+*.log
+*.profdata
+*.profraw
 
 # Xcode generated project (regenerate with `xcodegen`)
 *.xcodeproj/
