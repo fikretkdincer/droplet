@@ -39,13 +39,16 @@ jobs:
         # Verify the macOS widget extension is bundled before packaging
         test -d "droplet.app/Contents/PlugIns/DropletWidget.appex"
 
-        # Sign the widget and app ad-hoc to avoid "damaged app" errors
+        # Sign the widget and app ad-hoc to avoid "damaged app" errors.
+        # Preserve entitlements so WidgetKit can discover the bundled extension.
         echo "Signing bundled widget extension..."
-        codesign --force --sign - "droplet.app/Contents/PlugIns/DropletWidget.appex"
+        codesign --force --sign - --entitlements DropletWidget/DropletWidget.entitlements "droplet.app/Contents/PlugIns/DropletWidget.appex"
 
         echo "Signing app bundle..."
-        codesign --force --deep --sign - "droplet.app"
+        codesign --force --sign - --entitlements Droplet/droplet.entitlements "droplet.app"
         codesign --verify --deep --strict --verbose=2 "droplet.app"
+        codesign -d --entitlements :- "droplet.app/Contents/PlugIns/DropletWidget.appex"
+        codesign -d --entitlements :- "droplet.app"
 
         echo "App bundle created and verified: droplet.app"
 
